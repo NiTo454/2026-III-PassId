@@ -1,6 +1,6 @@
 ﻿# PassId (2026-III-PassId)
 
-Plataforma universitaria para la gestion de accesos, pasaporte de eventos extracurriculares y control de asistencia a clases mediante codigos QR, desarrollada para la Universidad Tecnologica del Valle de Mezquital (UTVAM).
+Plataforma universitaria para la gestion de accesos, pasaporte de eventos extracurriculares y control de asistencia a clases mediante codigos QR, desarrollada para la Universidad Tecnologica del Valle de Mexico (UTVAM).
 
 Este proyecto corresponde a la migracion y reingenieria del sistema legacy Pasaporte2 (PHP/MySQL) hacia una arquitectura moderna, escalable y mantenible basada en Python y Django.
 
