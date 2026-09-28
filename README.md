@@ -169,4 +169,4 @@ Para revisar el analisis de normalizacion, el mapeo campo por campo y el orden d
 - `docs/diseno_migracion_orm_django.md`
 
 ---
-Universidad Tecnologica del Valle de Mezquital (UTVAM) - 2026.
+Universidad Tecnologica del Valle de Mexico (UTVAM) - 2026.
