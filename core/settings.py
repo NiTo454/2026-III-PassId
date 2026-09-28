@@ -27,6 +27,7 @@ INSTALLED_APPS = [
 
     # Módulos
     'usuarios',
+    'academico',
     'eventos',
 ]
 
