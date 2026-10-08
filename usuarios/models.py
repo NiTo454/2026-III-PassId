@@ -1,5 +1,5 @@
-﻿from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.db import models
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 class Permiso(models.Model):
     """
@@ -43,14 +43,19 @@ class Perfil(models.Model):
     def __str__(self):
         return self.nombre
 
+    @property
+    def perms(self):
+        """Retorna el QuerySet de permisos asignados al perfil eliminando duplicados en la consulta ORM."""
+        return self.permisos.all().distinct()
+
     def tiene_permiso(self, perm_str: str) -> bool:
         """Verifica si el perfil cuenta con un permiso específico (ej. 'evento.add_evento' o 'evento.*')."""
         if "." in perm_str:
             tipo, codename = perm_str.split(".", 1)
             if codename == "*":
-                return self.permisos.filter(tipo=tipo).exists()
-            return self.permisos.filter(tipo=tipo, codename=codename).exists()
-        return False
+                return self.perms.filter(tipo=tipo).exists()
+            return self.perms.filter(tipo=tipo, codename=codename).exists()
+        return self.perms.filter(codename=perm_str).exists()
 
 
 class PerfilTienePermiso(models.Model):
@@ -80,20 +85,21 @@ class UsuarioManager(BaseUserManager):
         return user
 
     def create_superuser(self, username, email, password=None, **extra_fields):
-        extra_fields.setdefault("superusuario", True)
+        extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("activo", True)
         return self.create_user(username, email, password, **extra_fields)
 
 
-class Usuario(AbstractBaseUser):
+class Usuario(AbstractBaseUser, PermissionsMixin):
     """
-    Modelo de Usuario compatible con el sistema de autenticación de Django y la base de datos de Pasaporte2.
+    Modelo de Usuario compatible con el sistema de autenticación de Django, PermissionsMixin
+    y la base de datos de Pasaporte2.
     """
     id = models.BigAutoField(primary_key=True)
     username = models.CharField(max_length=50, unique=True, verbose_name="Nombre de usuario")
     password = models.CharField(max_length=255, verbose_name="Contraseña")
     activo = models.BooleanField(default=True, verbose_name="¿Activo?")
-    superusuario = models.BooleanField(default=False, verbose_name="¿Superusuario?")
+    is_superuser = models.BooleanField(default=False, verbose_name="¿Superusuario?", db_column="superusuario")
 
     nombre = models.CharField(max_length=50, null=True, blank=True, verbose_name="Nombre(s)")
     apaterno = models.CharField(max_length=50, null=True, blank=True, verbose_name="Apellido Paterno")
@@ -134,26 +140,57 @@ class Usuario(AbstractBaseUser):
         return nombre_completo if nombre_completo else self.username
 
     @property
-    def is_staff(self):
-        return self.superusuario
+    def superusuario(self):
+        return self.is_superuser
+
+    @superusuario.setter
+    def superusuario(self, value):
+        self.is_superuser = value
 
     @property
-    def is_superuser(self):
-        return self.superusuario
+    def is_staff(self):
+        return self.is_superuser
 
     @property
     def is_active(self):
         return self.activo
 
+    @property
+    def perms(self):
+        """
+        Retorna el QuerySet consolidado y sin duplicados de todos los Permisos
+        del usuario (tanto directos como heredados de sus perfiles/roles).
+        """
+        if self.is_superuser:
+            return Permiso.objects.all().distinct()
+
+        permisos_directos = Permiso.objects.filter(usuarios=self)
+        permisos_perfil = Permiso.objects.filter(perfiles__usuarios=self)
+        return (permisos_directos | permisos_perfil).distinct()
+
+    def get_all_permissions(self, obj=None):
+        """
+        Retorna un conjunto (set) de nombres completos de permisos ('tipo.codename')
+        del usuario sin duplicados para compatibilidad con la librería de permisos de Django.
+        """
+        if self.is_superuser:
+            return set(f"{p.tipo}.{p.codename}" for p in Permiso.objects.all())
+        return set(f"{p.tipo}.{p.codename}" for p in self.perms)
+
     def has_perm(self, perm, obj=None):
-        if self.superusuario:
+        if self.is_superuser:
             return True
-        if self.permisos_directos.filter(codename=perm).exists():
-            return True
-        return self.perfiles.filter(permisos__codename=perm).exists()
+        if "." in perm:
+            tipo, codename = perm.split(".", 1)
+            if codename == "*":
+                return self.perms.filter(tipo=tipo).exists()
+            return self.perms.filter(tipo=tipo, codename=codename).exists()
+        return self.perms.filter(codename=perm).exists()
 
     def has_module_perms(self, app_label):
-        return self.superusuario
+        if self.is_superuser:
+            return True
+        return self.perms.filter(tipo=app_label).exists()
 
 
 class UsuarioTienePerfil(models.Model):

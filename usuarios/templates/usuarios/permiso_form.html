@@ -1,0 +1,35 @@
+{% extends 'usuarios/base.html' %}
+
+{% block title %}{{ title }} - PassID{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="glass-card">
+        <h1 class="form-title">{{ title }}</h1>
+        <p style="color: var(--text-muted); margin-bottom: 2rem;">Ingresa los detalles del permiso atómico del sistema.</p>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">{{ form.tipo.label }}</label>
+                {{ form.tipo }}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">{{ form.codename.label }}</label>
+                {{ form.codename }}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">{{ form.nombre.label }}</label>
+                {{ form.nombre }}
+            </div>
+
+            <div class="btn-group">
+                <a href="{% url 'usuarios:permiso_list' %}" class="btn-cancel">Cancelar</a>
+                <button type="submit" class="btn-submit">{{ button_text }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

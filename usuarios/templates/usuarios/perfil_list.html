@@ -1,0 +1,62 @@
+{% extends 'usuarios/base.html' %}
+
+{% block title %}Catálogo de Perfiles / Roles - PassID{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Gestión de Perfiles y Roles</h1>
+        <p class="page-subtitle">Administración manual de roles y asignación de permisos agrupados</p>
+    </div>
+    <a href="{% url 'usuarios:perfil_create' %}" class="btn-create">
+        <i class="fa-solid fa-plus"></i> Crear Perfil
+    </a>
+</div>
+
+<div class="glass-card">
+    <form method="get" class="search-bar">
+        <input type="text" name="q" value="{{ query }}" class="search-input" placeholder="Buscar por nombre de perfil...">
+        <button type="submit" class="btn-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+    </form>
+
+    <div style="overflow-x: auto;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre del Perfil</th>
+                    <th>Permisos Asignados</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for perfil in perfiles %}
+                <tr>
+                    <td><code>#{{ perfil.id }}</code></td>
+                    <td><strong>{{ perfil.nombre }}</strong></td>
+                    <td>
+                        {% for perm in perfil.permisos.all %}
+                        <span class="badge-perm">{{ perm.tipo }}.{{ perm.codename }}</span>
+                        {% empty %}
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Sin permisos asignados</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <a href="{% url 'usuarios:perfil_update' perfil.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                            <a href="{% url 'usuarios:perfil_delete' perfil.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No se encontraron perfiles registrados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

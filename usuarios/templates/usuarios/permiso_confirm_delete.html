@@ -1,0 +1,27 @@
+{% extends 'usuarios/base.html' %}
+
+{% block title %}Eliminar Permiso - PassID{% endblock %}
+
+{% block content %}
+<div class="delete-container">
+    <div class="glass-card">
+        <i class="fa-solid fa-triangle-exclamation icon-warning"></i>
+        <h1 class="delete-title">¿Eliminar este permiso?</h1>
+        <p class="delete-desc">
+            Esta acción eliminará de forma permanente el permiso atómico del sistema.
+        </p>
+        
+        <div style="margin-bottom: 1.5rem;">
+            <span class="badge-perm">{{ permiso.tipo }}.{{ permiso.codename }}</span>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="btn-group">
+                <a href="{% url 'usuarios:permiso_list' %}" class="btn-cancel">Cancelar</a>
+                <button type="submit" class="btn-delete-confirm">Sí, Eliminar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,12 +1,20 @@
-﻿from django.contrib import admin
+from django.contrib import admin
 from .models import Evento, Registro, Asistencia, ResponsableEvento
+
+class ResponsableEventoInline(admin.TabularInline):
+    model = ResponsableEvento
+    extra = 1
+
+class RegistroInline(admin.TabularInline):
+    model = Registro
+    extra = 1
 
 @admin.register(Evento)
 class EventoAdmin(admin.ModelAdmin):
     list_display = ("nombre", "fecha_hora", "lugar", "requiere_registro", "permitir_autorregistro")
     search_fields = ("nombre", "lugar")
     list_filter = ("requiere_registro", "permitir_autorregistro")
-    filter_horizontal = ("responsables", "asistentes_registrados")
+    inlines = [ResponsableEventoInline, RegistroInline]
 
 @admin.register(Registro)
 class RegistroAdmin(admin.ModelAdmin):
@@ -23,3 +31,4 @@ class AsistenciaAdmin(admin.ModelAdmin):
 @admin.register(ResponsableEvento)
 class ResponsableEventoAdmin(admin.ModelAdmin):
     list_display = ("evento", "usuario")
+

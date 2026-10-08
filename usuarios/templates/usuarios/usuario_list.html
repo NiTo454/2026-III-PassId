@@ -1,0 +1,74 @@
+{% extends 'usuarios/base.html' %}
+
+{% block title %}Catálogo de Usuarios - PassID{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Gestión de Usuarios</h1>
+        <p class="page-subtitle">Administración manual de cuentas de usuario, roles y credenciales</p>
+    </div>
+    <a href="{% url 'usuarios:usuario_create' %}" class="btn-create">
+        <i class="fa-solid fa-user-plus"></i> Registrar Usuario
+    </a>
+</div>
+
+<div class="glass-card">
+    <form method="get" class="search-bar">
+        <input type="text" name="q" value="{{ query }}" class="search-input" placeholder="Buscar por usuario, nombre, email o matrícula...">
+        <button type="submit" class="btn-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+    </form>
+
+    <div style="overflow-x: auto;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Nombre Completo</th>
+                    <th>Correo</th>
+                    <th>Matrícula / Grupo</th>
+                    <th>Perfiles</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios_list %}
+                <tr>
+                    <td><strong>{{ u.username }}</strong></td>
+                    <td>{{ u.nombre|default:"" }} {{ u.apaterno|default:"" }} {{ u.amaterno|default:"" }}</td>
+                    <td>{{ u.email }}</td>
+                    <td>{{ u.matricula|default:"--" }} / {{ u.grupo|default:"--" }}</td>
+                    <td>
+                        {% for perf in u.perfiles.all %}
+                        <span class="badge-role">{{ perf.nombre }}</span>
+                        {% empty %}
+                        <span style="color: var(--text-muted); font-size: 0.8rem;">Sin roles</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if u.activo %}
+                        <span class="badge-status badge-active">Activo</span>
+                        {% else %}
+                        <span class="badge-status badge-inactive">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <a href="{% url 'usuarios:usuario_update' u.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                            <a href="{% url 'usuarios:usuario_delete' u.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No se encontraron usuarios registrados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
