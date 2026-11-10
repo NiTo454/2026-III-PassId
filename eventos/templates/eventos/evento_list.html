@@ -8,7 +8,7 @@
     <th>Pre-registro</th>
     <th>Autorregistro</th>
     <th>Responsable</th>
-    {% if user.is_superuser or perms.evento.change_evento or perms.evento.delete_evento %}<th>Acciones</th>{% endif %}
+    {% if user.is_superuser or perms.evento.change_evento or perms.evento.delete_evento or perms.asistencia.add_asistencia %}<th>Acciones</th>{% endif %}
 </tr>
 {% endblock %}
 
@@ -33,8 +33,9 @@
         {% endif %}
     </td>
     <td>{{ e.responsable_interno|default:e.responsable_externo|default:"--" }}</td>
-    {% if user.is_superuser or perms.evento.change_evento or perms.evento.delete_evento %}<td>
+    {% if user.is_superuser or perms.evento.change_evento or perms.evento.delete_evento or perms.asistencia.add_asistencia %}<td>
         <div class="actions">
+            {% if user.is_superuser or perms.asistencia.add_asistencia %}<a href="{% url 'eventos:lector' %}?evento={{ e.pk }}" class="btn-action" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);" title="Escanear accesos (Cadenero)"><i class="fa-solid fa-qrcode"></i></a>{% endif %}
             {% if user.is_superuser or perms.evento.change_evento %}<a href="{% url 'eventos:evento_update' e.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>{% endif %}
             {% if user.is_superuser or perms.evento.delete_evento %}<a href="{% url 'eventos:evento_delete' e.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>{% endif %}
         </div>

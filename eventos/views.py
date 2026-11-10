@@ -1,12 +1,16 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View, TemplateView
 from django.db.models import Q, Exists, OuterRef
 from django.contrib import messages
 from django.utils import timezone
+from django.http import JsonResponse
+from django.core import signing
+import json
 from core.mixins import PassIdPermissionMixin
+from usuarios.models import Usuario
 from .models import Evento, Registro, Asistencia
-from .forms import EventoForm, RegistroEventoForm, AsistenciaEventoForm
+from .forms import EventoForm, RegistroEventoForm, AsistenciaEventoForm, EscaneoAsistenciaEventoForm
 
 
 
@@ -343,3 +347,256 @@ class AutoregistroCancelarView(PassIdPermissionMixin, View):
         messages.success(request, f"Tu inscripción a '{nombre_evento}' ha sido cancelada.")
 
         return redirect("eventos:eventos_disponibles")
+
+
+class EscanearAsistenciaEventoView(PassIdPermissionMixin, TemplateView):
+    template_name = "eventos/lector.html"
+    required_permission = "asistencia.add_asistencia"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        evento_id = self.request.GET.get("evento")
+        evento_preseleccionado = None
+        if evento_id and str(evento_id).isdigit():
+            evento_preseleccionado = Evento.objects.filter(pk=evento_id).first()
+
+        context["form"] = EscaneoAsistenciaEventoForm(
+            user=self.request.user,
+            initial_evento_id=evento_preseleccionado.pk if evento_preseleccionado else None
+        )
+        context["evento_preseleccionado"] = evento_preseleccionado
+        context["page_title"] = "Escáner QR de Eventos - Staff (Cadenero)"
+        context["page_subtitle"] = "Validación de pre-registro y pase de lista en puerta"
+        return context
+
+
+class InfoEventoApiView(PassIdPermissionMixin, View):
+    required_permission = "asistencia.add_asistencia"
+
+    def get(self, request, pk, *args, **kwargs):
+        evento = get_object_or_404(Evento, pk=pk)
+        return JsonResponse({
+            "ok": True,
+            "id": evento.id,
+            "nombre": evento.nombre,
+            "fecha_hora": timezone.localtime(evento.fecha_hora).strftime("%d/%m/%Y %H:%M"),
+            "lugar": evento.lugar or "Sin lugar asignado",
+            "requiere_registro": bool(evento.requiere_registro),
+            "total_registrados": evento.registros.count(),
+            "total_asistencias": evento.asistencias.count(),
+        })
+
+
+class RegistrarAsistenciaEventoQrView(PassIdPermissionMixin, View):
+    required_permission = "asistencia.add_asistencia"
+
+    def post(self, request, *args, **kwargs):
+        form = EscaneoAsistenciaEventoForm(request.POST, user=request.user)
+        if not form.is_valid():
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "access_granted": False,
+                    "message": "Selecciona un evento y escanea un código QR o captura la matrícula.",
+                },
+                status=400,
+            )
+
+        evento = form.cleaned_data["evento"]
+        token = form.cleaned_data.get("token")
+        matricula_raw = form.cleaned_data.get("matricula")
+
+        if token:
+            raw_text = token.strip()
+            matricula = raw_text
+
+            # 1. Si viene como JSON serializado
+            if raw_text.startswith("{") and raw_text.endswith("}"):
+                try:
+                    payload = json.loads(raw_text)
+                    matricula = (
+                        payload.get("matricula")
+                        or payload.get("username")
+                        or payload.get("usuario")
+                        or raw_text
+                    )
+                except Exception:
+                    pass
+
+            # 2. Si viene firmado como token Django (ej. PassID digital)
+            elif ":" in raw_text:
+                try:
+                    # Intento de desfirmado con o sin salt
+                    payload = None
+                    for salt in ("asistencia_qr.matricula", "eventos.acceso", None):
+                        try:
+                            payload = (
+                                signing.loads(raw_text, salt=salt)
+                                if salt
+                                else signing.loads(raw_text)
+                            )
+                            break
+                        except (signing.BadSignature, Exception):
+                            continue
+                    if isinstance(payload, dict):
+                        matricula = (
+                            payload.get("matricula")
+                            or payload.get("username")
+                            or payload.get("usuario")
+                            or raw_text
+                        )
+                    elif isinstance(payload, str) and payload:
+                        matricula = payload
+                except signing.SignatureExpired:
+                    return JsonResponse(
+                        {
+                            "ok": False,
+                            "access_granted": False,
+                            "message": "El código QR ha expirado. Solicita al asistente actualizar su código.",
+                        },
+                        status=400,
+                    )
+                except Exception:
+                    # Si no es token firmado, se toma como texto plano
+                    matricula = raw_text
+
+            metodo = "qr"
+        else:
+            matricula = matricula_raw.strip()
+            metodo = "manual"
+
+        # Búsqueda de usuario activo
+        asistente = Usuario.objects.filter(matricula=matricula, activo=True).first()
+        if not asistente:
+            asistente = Usuario.objects.filter(username=matricula, activo=True).first()
+
+        if not asistente:
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "access_granted": False,
+                    "message": f"No se encontró ningún usuario activo con la matrícula o usuario '{matricula}'.",
+                },
+                status=404,
+            )
+
+        # Validación 1: ¿Requiere pre-registro obligatorio?
+        registro = None
+        registrado_en_puerta = False
+        registrar_si_no_existe = form.cleaned_data.get("registrar_si_no_existe", False)
+
+        if evento.requiere_registro:
+            registro = Registro.objects.filter(evento=evento, usuario=asistente).first()
+            if not registro:
+                if registrar_si_no_existe:
+                    registro = Registro.objects.create(
+                        evento=evento,
+                        usuario=asistente,
+                        equipo="Registro en puerta",
+                    )
+                    registrado_en_puerta = True
+                else:
+                    return JsonResponse(
+                        {
+                            "ok": False,
+                            "access_granted": False,
+                            "can_register": True,
+                            "reason": "no_registro",
+                            "message": f"Acceso Denegado: {asistente} no cuenta con pre-registro para '{evento.nombre}'.",
+                            "asistente": {
+                                "id": asistente.id,
+                                "nombre": str(asistente),
+                                "matricula": asistente.matricula or asistente.username,
+                                "grupo": asistente.grupo,
+                            },
+                        },
+                        status=403,
+                    )
+        else:
+            registro = Registro.objects.filter(evento=evento, usuario=asistente).first()
+
+        # Validación 2: ¿Ya ingresó previamente al evento?
+        asistencia_existente = Asistencia.objects.filter(evento=evento, usuario=asistente).first()
+        if asistencia_existente:
+            hora_previa = timezone.localtime(asistencia_existente.fecha_entrada).strftime("%H:%M:%S")
+            registrador = (
+                asistencia_existente.registrado_por.username
+                if asistencia_existente.registrado_por
+                else "Staff"
+            )
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "duplicate": True,
+                    "access_granted": False,
+                    "message": f"¡Acceso duplicado! {asistente} ya ingresó previamente a las {hora_previa} (registrado por {registrador}).",
+                    "asistente": {
+                        "id": asistente.id,
+                        "nombre": str(asistente),
+                        "matricula": asistente.matricula or asistente.username,
+                        "grupo": asistente.grupo,
+                    },
+                    "hora_previa": hora_previa,
+                },
+                status=409,
+            )
+
+        # Registrar el acceso al evento
+        asistencia = Asistencia.objects.create(
+            evento=evento,
+            usuario=asistente,
+            registrado_por=request.user,
+        )
+
+        hora_acceso = timezone.localtime(asistencia.fecha_entrada).strftime("%H:%M:%S")
+
+        return JsonResponse(
+            {
+                "ok": True,
+                "access_granted": True,
+                "registrado_en_puerta": registrado_en_puerta,
+                "metodo": metodo,
+                "message": (
+                    f"¡Registrado en puerta y Acceso Autorizado! Bienvenido/a {asistente}."
+                    if registrado_en_puerta
+                    else f"¡Acceso Autorizado! Bienvenido/a {asistente}."
+                ),
+                "asistente": {
+                    "id": asistente.id,
+                    "nombre": str(asistente),
+                    "matricula": asistente.matricula or asistente.username,
+                    "grupo": asistente.grupo,
+                    "categoria": asistente.categoria or "Asistente",
+                    "equipo": registro.equipo if (registro and registro.equipo) else None,
+                },
+                "evento": {
+                    "id": evento.id,
+                    "nombre": evento.nombre,
+                },
+                "hora_acceso": hora_acceso,
+                "total_asistencias": Asistencia.objects.filter(evento=evento).count(),
+                "total_registrados": (
+                    Registro.objects.filter(evento=evento).count()
+                    if evento.requiere_registro
+                    else None
+                ),
+            }
+        )
+
+
+class EventoQrRegistroImagenView(PassIdPermissionMixin, View):
+    required_permission = "asistencia.add_asistencia"
+
+    def get(self, request, pk, *args, **kwargs):
+        evento = get_object_or_404(Evento, pk=pk)
+        registro_url = request.build_absolute_uri(
+            reverse_lazy("eventos:autoregistro_inscribir", kwargs={"pk": evento.pk})
+        )
+        from core.utils import generar_qr
+        import base64
+        from django.http import HttpResponse
+
+        img_bytes = base64.b64decode(generar_qr(registro_url))
+        response = HttpResponse(img_bytes, content_type="image/png")
+        response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        return response

@@ -131,7 +131,7 @@
             </div>
             {% endif %}
 
-            {% if user.is_superuser or perms.evento.view_evento or perms.registro.view_registro or perms.asistencia.view_asistencia %}
+            {% if user.is_superuser or perms.evento.view_evento or perms.registro.view_registro or perms.asistencia.view_asistencia or perms.asistencia.add_asistencia %}
             <div class="nav-dropdown">
                 <button class="nav-link nav-trigger" aria-haspopup="true" aria-expanded="false">
                     <i class="fa-solid fa-calendar-check"></i>
@@ -151,7 +151,12 @@
                     {% endif %}
                     {% if user.is_superuser or perms.asistencia.view_asistencia %}
                     <a href="{% url 'eventos:asistencia_list' %}" class="nav-dropdown-item" role="menuitem">
-                        <i class="fa-solid fa-qrcode"></i> Asistencias
+                        <i class="fa-solid fa-list-check"></i> Asistencias
+                    </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.asistencia.add_asistencia %}
+                    <a href="{% url 'eventos:lector' %}" class="nav-dropdown-item" role="menuitem">
+                        <i class="fa-solid fa-qrcode"></i> Lector QR Staff
                     </a>
                     {% endif %}
                 </div>

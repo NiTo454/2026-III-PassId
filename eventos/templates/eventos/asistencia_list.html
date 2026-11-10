@@ -1,5 +1,19 @@
 {% extends 'common/list_base.html' %}
 
+{% block search_form %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <form method="get" class="search-bar" style="margin-bottom: 0; flex: 1; min-width: 280px;">
+        <input type="text" name="q" value="{{ query|default:'' }}" class="search-input" placeholder="{{ search_placeholder|default:'Buscar...' }}">
+        <button type="submit" class="btn-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+    </form>
+    {% if user.is_superuser or perms.asistencia.add_asistencia %}
+    <a href="{% url 'eventos:lector' %}" class="btn-submit" style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; padding: 0.75rem 1.25rem;">
+        <i class="fa-solid fa-qrcode"></i> Lector QR (Cadenero)
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
+
 {% block table_head %}
 <tr>
     <th>Evento</th>
