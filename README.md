@@ -105,6 +105,12 @@ El sistema integra 18 modelos que cubren la totalidad de los datos y reglas de n
 - El lector de asistencia permite escanear con la cámara o capturar la matrícula manualmente. Para usar la cámara en producción, el sitio debe servirse mediante HTTPS.
 - Las migraciones agregan los permisos `asistencia_qr.ver_mi_qr`, `asistencia_qr.escanear_asistencia` y `asistencia_qr.ver_asistencias`, y asignan los permisos predeterminados de cada perfil. `basico` tiene acceso personal y consulta de eventos; `alumno` agrega autorregistro a eventos y consulta de su QR y asistencia; `profesor` puede consultar su carga, gestionar disponibilidad y registrar o consultar asistencias de sus grupos; `qa` tiene acceso de lectura funcional; `dev` administra los módulos funcionales sin administrar perfiles, permisos ni migraciones; `admin` recibe todos los permisos. El lector limita los horarios a los asignados al docente; los superusuarios pueden administrar todos.
 
+### Carga masiva de alumnos y profesores
+- En **Usuarios → Importar usuarios**, suba un archivo `.csv` o `.xlsx` con las columnas `username`, `email`, `nombre`, `apaterno`, `amaterno`, `matricula`, `grupo`, `whatsapp` y `rol`.
+- `rol` acepta `alumno` o `profesor`. Cada fila se valida por separado; usuarios existentes, duplicados y filas inválidas aparecen en el reporte sin detener las filas restantes.
+- La contraseña inicial es la matrícula y se guarda con el hasher de Django. Indique a cada usuario cambiarla al iniciar sesión.
+- Para abrir la función se requiere `usuario.add_usuario_masivo`. En Excel, almacene matrículas como texto para conservar ceros iniciales.
+
 ---
 
 ## 5. Guia de Instalacion y Ejecucion Local

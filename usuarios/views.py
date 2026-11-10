@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.views import PasswordChangeView
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
@@ -25,8 +26,10 @@ from .forms import (
     PerfilForm,
     PermisoForm,
     UsuarioCreateForm,
+    UsuarioImportForm,
     UsuarioUpdateForm,
 )
+from .importacion_usuarios import import_users
 from .models import PasswordReset, Permiso, Perfil, Usuario
 
 
@@ -375,6 +378,27 @@ class UsuarioCreateView(PassIdPermissionMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context["title"] = "Registrar Nuevo Usuario"
         context["button_text"] = "Guardar Usuario"
+        return context
+
+
+class UsuarioImportView(PassIdPermissionMixin, FormView):
+    form_class = UsuarioImportForm
+    template_name = "usuarios/usuario_importar.html"
+    required_permission = "usuario.add_usuario_masivo"
+
+    def form_valid(self, form):
+        try:
+            report = import_users(form.cleaned_data["archivo"])
+        except ValidationError as error:
+            form.add_error("archivo", error)
+            return self.form_invalid(form)
+        return self.render_to_response(
+            self.get_context_data(form=form, report=report)
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("title", "Carga masiva de usuarios")
         return context
 
 
