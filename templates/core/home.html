@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="main-container">
@@ -20,11 +21,21 @@
                 
                 <div class="text-center">
                     <div class="pass-id-qr-container">
+                        {% if request.user.matricula %}
+                        {% if user.is_superuser or perms.asistencia_qr.ver_mi_qr %}
                         <img
                             class="pass-id-qr"
-                            src="data:image/png;base64,{{ qr_base64 }}"
-                            alt="Código QR de PASS-ID"
+                            id="pass-id-qr"
+                            src="{% url 'asistencia_qr:qr_imagen' %}"
+                            data-qr-refresh-url="{% url 'asistencia_qr:qr_imagen' %}"
+                            alt="Código QR firmado de asistencia PASS-ID"
                         >
+                        {% else %}
+                        <p class="page-subtitle">El QR de asistencia no está habilitado para tu perfil.</p>
+                        {% endif %}
+                        {% else %}
+                        <p class="page-subtitle">Tu cuenta no tiene una matrícula registrada.</p>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -144,4 +155,12 @@
 
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+{% if request.user.matricula %}
+{% if user.is_superuser or perms.asistencia_qr.ver_mi_qr %}
+<script src="{% static 'js/qr-refresh.js' %}" defer></script>
+{% endif %}
+{% endif %}
 {% endblock %}
