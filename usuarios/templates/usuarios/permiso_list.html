@@ -8,9 +8,9 @@
         <h1 class="page-title">Catálogo de Permisos</h1>
         <p class="page-subtitle">Gestión manual de permisos atómicos clasificados por tipo o módulo</p>
     </div>
-    <a href="{% url 'usuarios:permiso_create' %}" class="btn-create">
+    {% if user.is_superuser or perms.usuario.add_permiso %}<a href="{% url 'usuarios:permiso_create' %}" class="btn-create">
         <i class="fa-solid fa-plus"></i> Crear Permiso
-    </a>
+    </a>{% endif %}
 </div>
 
 <div class="glass-card">
@@ -39,8 +39,8 @@
                     <td>{{ permiso.nombre|default:"Sin descripción" }}</td>
                     <td>
                         <div class="actions">
-                            <a href="{% url 'usuarios:permiso_update' permiso.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>
-                            <a href="{% url 'usuarios:permiso_delete' permiso.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+                            {% if user.is_superuser or perms.usuario.change_permiso %}<a href="{% url 'usuarios:permiso_update' permiso.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>{% endif %}
+                            {% if user.is_superuser or perms.usuario.delete_permiso %}<a href="{% url 'usuarios:permiso_delete' permiso.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>{% endif %}
                         </div>
                     </td>
                 </tr>

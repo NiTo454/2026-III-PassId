@@ -18,6 +18,7 @@ class CarreraListView(PassIdPermissionMixin, ListView):
     context_object_name = "carreras"
     paginate_by = 10
     required_permission = "carrera.view_carrera"
+    create_permission = "carrera.add_carrera"
 
     def get_queryset(self):
         queryset = Carrera.objects.all()
@@ -120,6 +121,7 @@ class AulaListView(PassIdPermissionMixin, ListView):
     context_object_name = "aulas"
     paginate_by = 10
     required_permission = "aula.view_aula"
+    create_permission = "aula.add_aula"
 
     def get_queryset(self):
         queryset = Aula.objects.all()
@@ -224,6 +226,7 @@ class MateriaListView(PassIdPermissionMixin, ListView):
     context_object_name = "materias"
     paginate_by = 10
     required_permission = "materia.view_materia"
+    create_permission = "materia.add_materia"
 
     def get_queryset(self):
         queryset = Materia.objects.select_related("carrera").all()
@@ -328,6 +331,7 @@ class HorarioListView(PassIdPermissionMixin, ListView):
     context_object_name = "horarios"
     paginate_by = 10
     required_permission = "horario.view_horario"
+    create_permission = "horario.add_horario"
 
     def get_queryset(self):
         queryset = Horario.objects.select_related("materia", "profesor", "aula").all()
@@ -433,6 +437,7 @@ class InscripcionListView(PassIdPermissionMixin, ListView):
     context_object_name = "inscripciones"
     paginate_by = 10
     required_permission = "inscripcion.view_inscripcion"
+    create_permission = "inscripcion.add_inscripcion"
 
     def get_queryset(self):
         queryset = Inscripcion.objects.select_related("usuario", "materia").order_by("-fecha_inscripcion")
@@ -619,7 +624,7 @@ class CargaAcademicaView(PassIdPermissionMixin, TemplateView):
             request.user.is_authenticated
             and (
                 request.user.is_superuser
-                or request.user.has_perm("horario.*")
+                or request.user.has_perm("horario.admin")
             )
         )
         return super().dispatch(request, *args, **kwargs)

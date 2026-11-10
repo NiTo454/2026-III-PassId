@@ -16,6 +16,7 @@ class EventoListView(PassIdPermissionMixin, ListView):
     context_object_name = "eventos"
     paginate_by = 10
     required_permission = "evento.view_evento"
+    create_permission = "evento.add_evento"
 
     def get_queryset(self):
         queryset = Evento.objects.all()
@@ -105,6 +106,7 @@ class RegistroListView(PassIdPermissionMixin, ListView):
     context_object_name = "registros"
     paginate_by = 10
     required_permission = "registro.view_registro"
+    create_permission = "registro.add_registro"
 
     def get_queryset(self):
         queryset = Registro.objects.select_related("evento", "usuario").order_by("-fecha_registro")
@@ -194,6 +196,7 @@ class AsistenciaListView(PassIdPermissionMixin, ListView):
     context_object_name = "asistencias"
     paginate_by = 10
     required_permission = "asistencia.view_asistencia"
+    create_permission = "asistencia.add_asistencia"
 
     def get_queryset(self):
         queryset = Asistencia.objects.select_related("evento", "usuario", "registrado_por").order_by("-fecha_entrada")

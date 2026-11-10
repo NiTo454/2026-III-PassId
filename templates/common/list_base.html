@@ -10,7 +10,7 @@
         <p class="page-subtitle">{{ page_subtitle }}</p>
         {% endif %}
     </div>
-    {% if create_url %}
+    {% if create_url and can_create %}
     <a href="{{ create_url }}" class="btn-create">
         <i class="fa-solid fa-plus"></i> {{ create_label|default:"Crear Nuevo" }}
     </a>

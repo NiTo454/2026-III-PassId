@@ -96,12 +96,20 @@
                     <br><br>
                     
                     <div class="actions">
+                        {% if user.is_superuser or perms.horario.view_horario %}
                         <a href="{% url 'academico:horario_list' %}" class="btn-cancel">
-                            <i class="fa-regular fa-calendar"></i> Ver Mi Horario
+                            <i class="fa-regular fa-calendar"></i> Ver Horarios
                         </a>
+                        {% elif perms.horario.view_carga_academica %}
+                        <a href="{% url 'academico:carga_academica' %}" class="btn-cancel">
+                            <i class="fa-regular fa-calendar"></i> Ver Mi Carga Académica
+                        </a>
+                        {% endif %}
+                        {% if user.is_superuser or perms.asistencia_clase.view_progreso_asistencia %}
                         <a href="{% url 'academico:mi_progreso' %}" class="btn-cancel">
                             <i class="fa-solid fa-chart-line"></i> Mi Asistencia
                         </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -117,9 +125,11 @@
                 <div>
                     <span class="form-label"><i class="fa-solid fa-hourglass-half"></i> EVENTOS Y ACTIVIDADES EXTRAESCOLARES</span>
                 </div>
+                {% if user.is_superuser or perms.evento.view_evento %}
                 <div class="actions">
                     <a href="{% url 'eventos:evento_list' %}" class="btn-cancel"><i class="fa-solid fa-calendar-plus"></i> Ver Catálogo</a>
                 </div>
+                {% endif %}
             </div>
             
             <br>

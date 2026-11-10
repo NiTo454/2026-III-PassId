@@ -39,6 +39,7 @@
             </div>
             {% endif %}
 
+            {% if user.is_superuser or perms.asistencia_clase.view_progreso_asistencia or perms.otro.autorregistrarse %}
             <div class="nav-dropdown">
                 <button class="nav-link nav-trigger" aria-haspopup="true" aria-expanded="false">
                     <i class="fa-solid fa-circle-info"></i>
@@ -46,9 +47,11 @@
                     <i class="fa-solid fa-chevron-down nav-chevron"></i>
                 </button>
                 <div class="nav-dropdown-menu" role="menu">
+                    {% if user.is_superuser or perms.asistencia_clase.view_progreso_asistencia %}
                     <a href="{% url 'academico:mi_progreso' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-chart-line"></i> Mi Progreso
                     </a>
+                    {% endif %}
                     {% if user.is_superuser or perms.otro.autorregistrarse %}
                     <a href="{% url 'eventos:eventos_disponibles' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-calendar-plus"></i> Eventos Disponibles
@@ -56,8 +59,9 @@
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
 
-            {% if user.is_superuser or perms.usuario or perms.usuarios %}
+            {% if user.is_superuser or perms.usuario.view_permiso or perms.usuario.view_perfil or perms.usuario.view_usuario %}
             <div class="nav-dropdown">
                 <button class="nav-link nav-trigger" aria-haspopup="true" aria-expanded="false">
                     <i class="fa-solid fa-shield-halved"></i>
@@ -65,20 +69,26 @@
                     <i class="fa-solid fa-chevron-down nav-chevron"></i>
                 </button>
                 <div class="nav-dropdown-menu" role="menu">
+                    {% if user.is_superuser or perms.usuario.view_permiso %}
                     <a href="{% url 'usuarios:permiso_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-key"></i> Permisos
                     </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.usuario.view_perfil %}
                     <a href="{% url 'usuarios:perfil_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-user-tag"></i> Perfiles / Roles
                     </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.usuario.view_usuario %}
                     <a href="{% url 'usuarios:usuario_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-users"></i> Usuarios
                     </a>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
 
-            {% if user.is_superuser or perms.carrera or perms.aula or perms.materia or perms.horario or perms.inscripcion or perms.academico %}
+            {% if user.is_superuser or perms.carrera.view_carrera or perms.aula.view_aula or perms.materia.view_materia or perms.horario.view_horario or perms.inscripcion.view_inscripcion or perms.horario.view_carga_academica %}
             <div class="nav-dropdown">
                 <button class="nav-link nav-trigger" aria-haspopup="true" aria-expanded="false">
                     <i class="fa-solid fa-graduation-cap"></i>
@@ -86,30 +96,42 @@
                     <i class="fa-solid fa-chevron-down nav-chevron"></i>
                 </button>
                 <div class="nav-dropdown-menu" role="menu">
+                    {% if user.is_superuser or perms.carrera.view_carrera %}
                     <a href="{% url 'academico:carrera_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-certificate"></i> Carreras
                     </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.aula.view_aula %}
                     <a href="{% url 'academico:aula_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-door-open"></i> Aulas
                     </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.materia.view_materia %}
                     <a href="{% url 'academico:materia_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-book"></i> Materias
                     </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.horario.view_horario %}
                     <a href="{% url 'academico:horario_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-calendar-days"></i> Horarios
                     </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.inscripcion.view_inscripcion %}
                     <a href="{% url 'academico:inscripcion_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-user-check"></i> Inscripciones
                     </a>
+                    {% endif %}
 
+                    {% if user.is_superuser or perms.horario.view_carga_academica %}
                     <a href="{% url 'academico:carga_academica' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-calendar-week"></i> Carga Académica
                     </a>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
 
-            {% if user.is_superuser or perms.evento or perms.registro or perms.asistencia or perms.eventos %}
+            {% if user.is_superuser or perms.evento.view_evento or perms.registro.view_registro or perms.asistencia.view_asistencia %}
             <div class="nav-dropdown">
                 <button class="nav-link nav-trigger" aria-haspopup="true" aria-expanded="false">
                     <i class="fa-solid fa-calendar-check"></i>
@@ -117,28 +139,38 @@
                     <i class="fa-solid fa-chevron-down nav-chevron"></i>
                 </button>
                 <div class="nav-dropdown-menu" role="menu">
+                    {% if user.is_superuser or perms.evento.view_evento %}
                     <a href="{% url 'eventos:evento_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-bullhorn"></i> Catálogo de Eventos
                     </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.registro.view_registro %}
                     <a href="{% url 'eventos:registro_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-clipboard-list"></i> Pre-registros
                     </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.asistencia.view_asistencia %}
                     <a href="{% url 'eventos:asistencia_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-qrcode"></i> Asistencias
                     </a>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
 
             {# ── Usuario + Logout ── #}
             <div class="nav-user-actions">
+                {% if user.is_superuser or perms.usuario.change_password %}
                 <a href="{% url 'usuarios:cambiar_password' %}" class="nav-icon-btn" title="Cambiar Contraseña">
                     <i class="fa-solid fa-key"></i>
                 </a>
+                {% endif %}
+                {% if user.is_superuser or perms.usuario.change_mi_perfil %}
                 <a href="{% url 'usuarios:mi_perfil' %}" class="nav-user-badge" title="Configurar Mi Perfil ({{ user.email }})">
                     <i class="fa-solid fa-user-gear"></i>
                     <span class="nav-username">{{ user.username }}</span>
                 </a>
+                {% endif %}
                 <form method="post" action="{% url 'autenticacion:logout' %}">
                     {% csrf_token %}
                     <button type="submit" class="btn-logout" title="Cerrar sesión">

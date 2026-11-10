@@ -103,7 +103,7 @@ El sistema integra 18 modelos que cubren la totalidad de los datos y reglas de n
 - El QR contiene un token firmado asociado a la matrícula, con vigencia de cinco minutos. La pantalla del alumno renueva la imagen automáticamente.
 - El lector valida la matrícula, la inscripción activa en el horario seleccionado y la ausencia de un registro previo para ese día.
 - El lector de asistencia permite escanear con la cámara o capturar la matrícula manualmente. Para usar la cámara en producción, el sitio debe servirse mediante HTTPS.
-- La migración agrega al catálogo los permisos `asistencia_qr.ver_mi_qr`, `asistencia_qr.escanear_asistencia` y `asistencia_qr.ver_asistencias`. Asígnelos a los perfiles correspondientes desde **Usuarios → Perfiles / Roles** (por ejemplo: alumno para consultar su QR; docente para leer y consultar asistencias). El lector limita los horarios a los asignados al docente; los superusuarios pueden administrar todos.
+- Las migraciones agregan los permisos `asistencia_qr.ver_mi_qr`, `asistencia_qr.escanear_asistencia` y `asistencia_qr.ver_asistencias`, y asignan los permisos predeterminados de cada perfil. `basico` tiene acceso personal y consulta de eventos; `alumno` agrega autorregistro a eventos y consulta de su QR y asistencia; `profesor` puede consultar su carga, gestionar disponibilidad y registrar o consultar asistencias de sus grupos; `qa` tiene acceso de lectura funcional; `dev` administra los módulos funcionales sin administrar perfiles, permisos ni migraciones; `admin` recibe todos los permisos. El lector limita los horarios a los asignados al docente; los superusuarios pueden administrar todos.
 
 ---
 

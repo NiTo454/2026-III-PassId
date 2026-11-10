@@ -8,7 +8,7 @@
     <th>Pre-registro</th>
     <th>Autorregistro</th>
     <th>Responsable</th>
-    <th>Acciones</th>
+    {% if user.is_superuser or perms.evento.change_evento or perms.evento.delete_evento %}<th>Acciones</th>{% endif %}
 </tr>
 {% endblock %}
 
@@ -33,12 +33,12 @@
         {% endif %}
     </td>
     <td>{{ e.responsable_interno|default:e.responsable_externo|default:"--" }}</td>
-    <td>
+    {% if user.is_superuser or perms.evento.change_evento or perms.evento.delete_evento %}<td>
         <div class="actions">
-            <a href="{% url 'eventos:evento_update' e.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>
-            <a href="{% url 'eventos:evento_delete' e.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+            {% if user.is_superuser or perms.evento.change_evento %}<a href="{% url 'eventos:evento_update' e.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>{% endif %}
+            {% if user.is_superuser or perms.evento.delete_evento %}<a href="{% url 'eventos:evento_delete' e.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>{% endif %}
         </div>
-    </td>
+    </td>{% endif %}
 </tr>
 {% empty %}
 <tr>

@@ -8,9 +8,9 @@
         <h1 class="page-title">Gestión de Usuarios</h1>
         <p class="page-subtitle">Administración manual de cuentas de usuario, roles y credenciales</p>
     </div>
-    <a href="{% url 'usuarios:usuario_create' %}" class="btn-create">
+    {% if user.is_superuser or perms.usuario.add_usuario %}<a href="{% url 'usuarios:usuario_create' %}" class="btn-create">
         <i class="fa-solid fa-user-plus"></i> Registrar Usuario
-    </a>
+    </a>{% endif %}
 </div>
 
 <div class="glass-card">
@@ -55,8 +55,8 @@
                     </td>
                     <td>
                         <div class="actions">
-                            <a href="{% url 'usuarios:usuario_update' u.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>
-                            <a href="{% url 'usuarios:usuario_delete' u.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+                            {% if user.is_superuser or perms.usuario.change_usuario %}<a href="{% url 'usuarios:usuario_update' u.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>{% endif %}
+                            {% if user.is_superuser or perms.usuario.delete_usuario %}<a href="{% url 'usuarios:usuario_delete' u.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>{% endif %}
                         </div>
                     </td>
                 </tr>
