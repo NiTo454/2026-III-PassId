@@ -1,13 +1,193 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
-from django.db.models import Q
+import hashlib
+import secrets
+from datetime import timedelta
+from urllib.parse import urljoin
+
+from django.conf import settings
 from django.contrib import messages
-from core.mixins import PassIdPermissionMixin
-from .models import Permiso, Perfil, Usuario
-from django.contrib.auth.views import PasswordChangeView
 from django.contrib.auth import logout
-from .forms import PermisoForm, PerfilForm, UsuarioCreateForm, UsuarioUpdateForm, MiPerfilForm
+from django.contrib.auth.views import PasswordChangeView
+from django.core.cache import cache
+from django.core.mail import send_mail
+from django.db import transaction
+from django.db.models import Q
+from django.shortcuts import render
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.views import View
+from django.views.generic import FormView, ListView, CreateView, UpdateView, DeleteView
+
+from core.mixins import PassIdPermissionMixin
+from .forms import (
+    MiPerfilForm,
+    PasswordResetRequestForm,
+    PasswordResetSetPasswordForm,
+    PerfilForm,
+    PermisoForm,
+    UsuarioCreateForm,
+    UsuarioUpdateForm,
+)
+from .models import PasswordReset, Permiso, Perfil, Usuario
+
+
+class PasswordResetRequestView(FormView):
+    form_class = PasswordResetRequestForm
+    template_name = "common/form_base.html"
+    success_url = reverse_lazy("usuarios:password_reset_done")
+    rate_limit = 5
+    rate_limit_seconds = 900
+
+    def is_rate_limited(self):
+        remote_address = self.request.META.get("REMOTE_ADDR", "")
+        address_hash = hashlib.sha256(remote_address.encode("utf-8")).hexdigest()
+        cache_key = f"password-reset-request:{address_hash}"
+        cache.add(cache_key, 0, timeout=self.rate_limit_seconds)
+        try:
+            attempts = cache.incr(cache_key)
+        except ValueError:
+            cache.set(cache_key, 1, timeout=self.rate_limit_seconds)
+            attempts = 1
+        return attempts > self.rate_limit
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "title": "Recuperar contraseña",
+            "subtitle": (
+                "Ingresa tu correo institucional o matrícula. Si encontramos "
+                "una cuenta, enviaremos instrucciones para restablecer la contraseña."
+            ),
+            "button_text": "Enviar instrucciones",
+            "cancel_url": reverse_lazy("autenticacion:login"),
+        })
+        return context
+
+    def form_valid(self, form):
+        if self.is_rate_limited():
+            return super().form_valid(form)
+
+        identifier = form.cleaned_data["identifier"]
+        matches = list(
+            Usuario.objects.filter(
+                Q(email__iexact=identifier) | Q(matricula__iexact=identifier)
+            ).order_by("pk")[:2]
+        )
+
+        if len(matches) == 1:
+            user = matches[0]
+            token = secrets.token_hex(32)
+            now = timezone.now()
+            reset_path = reverse(
+                "usuarios:password_reset_confirm",
+                kwargs={"token": token},
+            )
+            reset_url = urljoin(
+                f"{settings.PASSWORD_RESET_BASE_URL.rstrip('/')}/",
+                reset_path.lstrip("/"),
+            )
+            message = (
+                "Recibimos una solicitud para restablecer la contraseña de tu cuenta PassID.\n\n"
+                f"Para elegir una nueva contraseña, abre este enlace:\n{reset_url}\n\n"
+                "El enlace vence en 24 horas y solo puede utilizarse una vez. "
+                "Si no solicitaste este cambio, puedes ignorar este mensaje."
+            )
+
+            with transaction.atomic():
+                locked_user = Usuario.objects.select_for_update().get(pk=user.pk)
+                PasswordReset.objects.filter(usuario=locked_user).delete()
+                PasswordReset.objects.create(
+                    usuario=locked_user,
+                    token=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+                    expira_en=now + timedelta(hours=24),
+                )
+                send_mail(
+                    "Restablecimiento de contraseña de PassID",
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [locked_user.email],
+                    fail_silently=False,
+                )
+
+        return super().form_valid(form)
+
+
+class PasswordResetDoneView(View):
+    def get(self, request, *args, **kwargs):
+        return render(request, "usuarios/password_reset_done.html")
+
+
+class PasswordResetConfirmView(View):
+    template_name = "common/form_base.html"
+
+    def render_sensitive(self, request, template_name, context=None, status=200):
+        response = render(request, template_name, context, status=status)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
+    def get_reset(self, token, lock=False):
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        resets = PasswordReset.objects.select_related("usuario")
+        if lock:
+            resets = resets.select_for_update()
+        return resets.filter(
+            token=token_hash,
+            expira_en__gt=timezone.now(),
+        ).first()
+
+    def get_context_data(self, form, token):
+        return {
+            "form": form,
+            "title": "Crear nueva contraseña",
+            "subtitle": "Elige una contraseña segura para tu cuenta.",
+            "button_text": "Guardar contraseña",
+            "cancel_url": reverse_lazy("autenticacion:login"),
+            "token": token,
+        }
+
+    def get(self, request, token, *args, **kwargs):
+        reset = self.get_reset(token)
+        if reset is None:
+            return self.render_sensitive(
+                request,
+                "usuarios/password_reset_invalid.html",
+                status=400,
+            )
+        form = PasswordResetSetPasswordForm(user=reset.usuario)
+        return self.render_sensitive(
+            request,
+            self.template_name,
+            self.get_context_data(form, token),
+        )
+
+    def post(self, request, token, *args, **kwargs):
+        with transaction.atomic():
+            reset = self.get_reset(token, lock=True)
+            if reset is None:
+                return self.render_sensitive(
+                    request,
+                    "usuarios/password_reset_invalid.html",
+                    status=400,
+                )
+            form = PasswordResetSetPasswordForm(
+                user=reset.usuario,
+                data=request.POST,
+            )
+            if form.is_valid():
+                form.save()
+                PasswordReset.objects.filter(usuario=reset.usuario).delete()
+                return self.render_sensitive(
+                    request,
+                    "usuarios/password_reset_complete.html",
+                )
+
+        return self.render_sensitive(
+            request,
+            self.template_name,
+            self.get_context_data(form, token),
+            status=400,
+        )
+
 
 class PermisoListView(PassIdPermissionMixin, ListView):
     model = Permiso

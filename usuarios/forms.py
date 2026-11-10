@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.forms import SetPasswordForm
 from .models import Permiso, Perfil, Usuario
 
 class PermisoForm(forms.ModelForm):
@@ -176,4 +177,29 @@ class MiPerfilForm(forms.ModelForm):
             'email',
             'whatsapp',
         ]
+
+
+class PasswordResetRequestForm(forms.Form):
+    identifier = forms.CharField(
+        label="Correo institucional o matrícula",
+        max_length=254,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "autocomplete": "username",
+            "autofocus": "autofocus",
+        }),
+    )
+
+    def clean_identifier(self):
+        return self.cleaned_data["identifier"].strip()
+
+
+class PasswordResetSetPasswordForm(SetPasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in ("new_password1", "new_password2"):
+            self.fields[field_name].widget.attrs.update({
+                "class": "form-control",
+                "autocomplete": "new-password",
+            })
         
