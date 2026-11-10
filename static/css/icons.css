@@ -1,0 +1,57 @@
+.fa-solid,
+.fa-regular {
+    display: inline-block;
+    font-family: inherit;
+    font-style: normal;
+    line-height: 1;
+}
+
+.fa-arrow-left::before { content: "\2190"; }
+.fa-arrow-right-to-bracket::before { content: "\21E5"; }
+.fa-bars::before { content: "\2630"; }
+.fa-book::before { content: "\25A4"; }
+.fa-bullhorn::before { content: "\25C9"; }
+.fa-calendar::before,
+.fa-calendar-days::before,
+.fa-calendar-week::before { content: "\25A6"; }
+.fa-calendar-check::before { content: "\2611"; }
+.fa-calendar-plus::before { content: "\229E"; }
+.fa-calendar-xmark::before { content: "\2612"; }
+.fa-camera::before { content: "\25C9"; }
+.fa-certificate::before { content: "\2726"; }
+.fa-chart-line::before { content: "\2197"; }
+.fa-check::before { content: "\2713"; }
+.fa-chevron-down::before { content: "\2304"; }
+.fa-circle-check::before { content: "\2713"; }
+.fa-circle-info::before { content: "\24D8"; }
+.fa-circle-xmark::before,
+.fa-xmark::before { content: "\2715"; }
+.fa-clipboard-check::before { content: "\2611"; }
+.fa-clipboard-list::before { content: "\2637"; }
+.fa-clock::before,
+.fa-hourglass-half::before { content: "\25F7"; }
+.fa-door-open::before { content: "\21E5"; }
+.fa-eye::before { content: "\25C9"; }
+.fa-file-import::before { content: "\21E9"; }
+.fa-filter::before { content: "\25BD"; }
+.fa-graduation-cap::before { content: "\25B1"; }
+.fa-id-badge::before,
+.fa-id-card::before { content: "\25A3"; }
+.fa-key::before { content: "\26BF"; }
+.fa-location-dot::before { content: "\25CF"; }
+.fa-magnifying-glass::before { content: "\2315"; }
+.fa-pen::before { content: "\270E"; }
+.fa-plus::before,
+.fa-user-plus::before { content: "\002B"; }
+.fa-qrcode::before { content: "\25A6"; }
+.fa-right-from-bracket::before { content: "\21E5"; }
+.fa-shield-halved::before { content: "\25C8"; }
+.fa-sort::before { content: "\2195"; }
+.fa-trash::before { content: "\232B"; }
+.fa-triangle-exclamation::before { content: "\26A0"; }
+.fa-user-check::before { content: "\2713"; }
+.fa-user-gear::before { content: "\2699"; }
+.fa-users::before,
+.fa-user-tag::before,
+.fa-user-tie::before { content: "\25C6"; }
+.fa-user-xmark::before { content: "\2715"; }
