@@ -410,7 +410,7 @@ class RegistrarAsistenciaEventoQrView(PassIdPermissionMixin, View):
             raw_text = token.strip()
             matricula = raw_text
 
-            # 1. Si viene como JSON serializado
+            
             if raw_text.startswith("{") and raw_text.endswith("}"):
                 try:
                     payload = json.loads(raw_text)
@@ -423,10 +423,10 @@ class RegistrarAsistenciaEventoQrView(PassIdPermissionMixin, View):
                 except Exception:
                     pass
 
-            # 2. Si viene firmado como token Django (ej. PassID digital)
+            
             elif ":" in raw_text:
                 try:
-                    # Intento de desfirmado con o sin salt
+                    
                     payload = None
                     for salt in ("asistencia_qr.matricula", "eventos.acceso", None):
                         try:
@@ -457,7 +457,7 @@ class RegistrarAsistenciaEventoQrView(PassIdPermissionMixin, View):
                         status=400,
                     )
                 except Exception:
-                    # Si no es token firmado, se toma como texto plano
+                    
                     matricula = raw_text
 
             metodo = "qr"
@@ -465,7 +465,7 @@ class RegistrarAsistenciaEventoQrView(PassIdPermissionMixin, View):
             matricula = matricula_raw.strip()
             metodo = "manual"
 
-        # Búsqueda de usuario activo
+        
         asistente = Usuario.objects.filter(matricula=matricula, activo=True).first()
         if not asistente:
             asistente = Usuario.objects.filter(username=matricula, activo=True).first()
@@ -480,7 +480,7 @@ class RegistrarAsistenciaEventoQrView(PassIdPermissionMixin, View):
                 status=404,
             )
 
-        # Validación 1: ¿Requiere pre-registro obligatorio?
+
         registro = None
         registrado_en_puerta = False
         registrar_si_no_existe = form.cleaned_data.get("registrar_si_no_existe", False)
@@ -515,7 +515,7 @@ class RegistrarAsistenciaEventoQrView(PassIdPermissionMixin, View):
         else:
             registro = Registro.objects.filter(evento=evento, usuario=asistente).first()
 
-        # Validación 2: ¿Ya ingresó previamente al evento?
+        
         asistencia_existente = Asistencia.objects.filter(evento=evento, usuario=asistente).first()
         if asistencia_existente:
             hora_previa = timezone.localtime(asistencia_existente.fecha_entrada).strftime("%H:%M:%S")
@@ -541,7 +541,7 @@ class RegistrarAsistenciaEventoQrView(PassIdPermissionMixin, View):
                 status=409,
             )
 
-        # Registrar el acceso al evento
+        
         asistencia = Asistencia.objects.create(
             evento=evento,
             usuario=asistente,
