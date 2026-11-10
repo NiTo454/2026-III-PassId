@@ -27,9 +27,9 @@
     </td>
     <td>
         <div class="actions">
-            <a href="{% url 'academico:aula_detail' a.pk %}" class="btn-action btn-view" title="Ver detalles"><i class="fa-solid fa-eye"></i></a>
-            <a href="{% url 'academico:aula_update' a.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>
-            <a href="{% url 'academico:aula_delete' a.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+            {% if user.is_superuser or perms.aula.view_aula %}<a href="{% url 'academico:aula_detail' a.pk %}" class="btn-action btn-view" title="Ver detalles"><i class="fa-solid fa-eye"></i></a>{% endif %}
+            {% if user.is_superuser or perms.aula.change_aula %}<a href="{% url 'academico:aula_update' a.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>{% endif %}
+            {% if user.is_superuser or perms.aula.delete_aula %}<a href="{% url 'academico:aula_delete' a.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>{% endif %}
         </div>
     </td>
 </tr>

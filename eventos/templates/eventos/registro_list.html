@@ -7,7 +7,7 @@
     <th>Matrícula</th>
     <th>Equipo</th>
     <th>Fecha de Registro</th>
-    <th>Acciones</th>
+    {% if user.is_superuser or perms.registro.change_registro or perms.registro.delete_registro %}<th>Acciones</th>{% endif %}
 </tr>
 {% endblock %}
 
@@ -19,12 +19,12 @@
     <td>{{ r.usuario.matricula|default:"--" }}</td>
     <td>{{ r.equipo|default:"Individual" }}</td>
     <td><span style="font-size: 0.85rem; color: var(--text-muted);">{{ r.fecha_registro|date:"d/m/Y H:i" }}</span></td>
-    <td>
+    {% if user.is_superuser or perms.registro.change_registro or perms.registro.delete_registro %}<td>
         <div class="actions">
-            <a href="{% url 'eventos:registro_update' r.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>
-            <a href="{% url 'eventos:registro_delete' r.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+            {% if user.is_superuser or perms.registro.change_registro %}<a href="{% url 'eventos:registro_update' r.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>{% endif %}
+            {% if user.is_superuser or perms.registro.delete_registro %}<a href="{% url 'eventos:registro_delete' r.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>{% endif %}
         </div>
-    </td>
+    </td>{% endif %}
 </tr>
 {% empty %}
 <tr>

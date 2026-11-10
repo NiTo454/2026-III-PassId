@@ -7,7 +7,7 @@
     <th>Matrícula</th>
     <th>Fecha y Hora de Acceso</th>
     <th>Registrado Por</th>
-    <th>Acciones</th>
+    {% if user.is_superuser or perms.asistencia.delete_asistencia %}<th>Acciones</th>{% endif %}
 </tr>
 {% endblock %}
 
@@ -19,11 +19,11 @@
     <td>{{ a.usuario.matricula|default:"--" }}</td>
     <td><i class="fa-regular fa-calendar-check" style="color: #4ade80;"></i> {{ a.fecha_entrada|date:"d/m/Y H:i" }}</td>
     <td><span class="badge-role">{{ a.registrado_por.username }}</span></td>
-    <td>
+    {% if user.is_superuser or perms.asistencia.delete_asistencia %}<td>
         <div class="actions">
-            <a href="{% url 'eventos:asistencia_delete' a.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+            {% if user.is_superuser or perms.asistencia.delete_asistencia %}<a href="{% url 'eventos:asistencia_delete' a.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>{% endif %}
         </div>
-    </td>
+    </td>{% endif %}
 </tr>
 {% empty %}
 <tr>

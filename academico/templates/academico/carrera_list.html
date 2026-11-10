@@ -25,9 +25,9 @@
     </td>
     <td>
         <div class="actions">
-            <a href="{% url 'academico:carrera_detail' c.pk %}" class="btn-action btn-view" title="Ver detalles"><i class="fa-solid fa-eye"></i></a>
-            <a href="{% url 'academico:carrera_update' c.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>
-            <a href="{% url 'academico:carrera_delete' c.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>
+            {% if user.is_superuser or perms.carrera.view_carrera %}<a href="{% url 'academico:carrera_detail' c.pk %}" class="btn-action btn-view" title="Ver detalles"><i class="fa-solid fa-eye"></i></a>{% endif %}
+            {% if user.is_superuser or perms.carrera.change_carrera %}<a href="{% url 'academico:carrera_update' c.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>{% endif %}
+            {% if user.is_superuser or perms.carrera.delete_carrera %}<a href="{% url 'academico:carrera_delete' c.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>{% endif %}
         </div>
     </td>
 </tr>

@@ -7,8 +7,18 @@ from django.urls import reverse
 
 
 class PassIdPermissionMixin(LoginRequiredMixin):
-    
+
     required_permission = None
+    create_permission = None
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.create_permission:
+            context["can_create"] = (
+                self.request.user.is_superuser
+                or self.request.user.has_perm(self.create_permission)
+            )
+        return context
 
     def dispatch(self, request, *args, **kwargs):
         if not self.required_permission:
