@@ -23,6 +23,10 @@ Este proyecto corresponde a la migracion y reingenieria del sistema legacy Pasap
 
 ---
 
+### Recursos visuales sin conexión
+- Las pantallas usan la tipografia disponible en el sistema y los iconos incluidos en `static/css/icons.css`; no requieren Google Fonts ni Font Awesome por CDN.
+- El lector QR usa `BarcodeDetector` cuando está disponible y una copia local de `html5-qrcode` cuando no lo está. En ambos casos se puede registrar la asistencia capturando la matrícula manualmente. La biblioteca local conserva su licencia Apache 2.0 en `static/vendor/html5-qrcode/LICENSE`.
+
 ## 2. Variables de Entorno (.env)
 
 El proyecto utiliza `python-dotenv` para aislar la configuracion sensible del entorno. Para configurar el proyecto en un entorno local o de produccion, cree un archivo `.env` en la raiz del proyecto basado en la siguiente plantilla:

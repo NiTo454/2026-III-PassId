@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Lector de asistencia - PassID{% endblock %}
 
@@ -33,7 +34,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="{% static 'vendor/html5-qrcode/html5-qrcode.min.js' %}"></script>
 <script>
 (() => {
     const form = document.getElementById("attendance-form");
@@ -115,10 +116,6 @@
             return;
         }
         if (!("BarcodeDetector" in window)) {
-            if (!window.Html5Qrcode) {
-                showResult("No se pudo cargar el lector QR auxiliar. Revisa tu conexión o captura la matrícula manualmente.", false);
-                return;
-            }
             try {
                 fallbackReader = new Html5Qrcode("qr-reader");
                 document.getElementById("qr-reader").style.display = "block";
