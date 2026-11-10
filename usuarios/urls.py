@@ -10,6 +10,7 @@ from .views import (
     PerfilDeleteView,
     UsuarioListView,
     UsuarioCreateView,
+    UsuarioImportView,
     UsuarioUpdateView,
     UsuarioDeleteView,
     MiPerfilView,
@@ -34,6 +35,7 @@ urlpatterns = [
 
     path("usuarios/", UsuarioListView.as_view(), name="usuario_list"),
     path("usuarios/crear/", UsuarioCreateView.as_view(), name="usuario_create"),
+    path("usuarios/importar/", UsuarioImportView.as_view(), name="usuario_import"),
     path("usuarios/<int:pk>/editar/", UsuarioUpdateView.as_view(), name="usuario_update"),
     path("usuarios/<int:pk>/eliminar/", UsuarioDeleteView.as_view(), name="usuario_delete"),
     path("mi-perfil/", MiPerfilView.as_view(), name="mi_perfil"),

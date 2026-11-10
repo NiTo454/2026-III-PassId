@@ -165,6 +165,26 @@ class UsuarioUpdateForm(forms.ModelForm):
             self.save_m2m()
         return user
 
+
+class UsuarioImportForm(forms.Form):
+    archivo = forms.FileField(
+        label="Archivo CSV o Excel",
+        widget=forms.ClearableFileInput(attrs={
+            "class": "form-control",
+            "accept": ".csv,.xlsx",
+        }),
+    )
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data["archivo"]
+        extension = archivo.name.rsplit(".", 1)[-1].lower()
+        if extension not in {"csv", "xlsx"}:
+            raise forms.ValidationError("El archivo debe tener extensión .csv o .xlsx.")
+        if archivo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError("El archivo no puede superar los 5 MB.")
+        return archivo
+
+
 class MiPerfilForm(forms.ModelForm):
     class Meta:
         model = Usuario

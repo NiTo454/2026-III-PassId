@@ -1,0 +1,52 @@
+{% extends 'usuarios/base.html' %}
+
+{% block title %}{{ title }} - PassID{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="glass-card">
+        <h1 class="form-title">{{ title }}</h1>
+        <p class="page-subtitle">
+            Sube un archivo .csv o .xlsx con las columnas:
+            <code>username, email, nombre, apaterno, amaterno, matricula, grupo, whatsapp, rol</code>.
+            El rol debe ser <code>alumno</code> o <code>profesor</code>.
+        </p>
+        <p class="page-subtitle">
+            La contraseña inicial será la matrícula. Indica a cada usuario que la cambie al iniciar sesión.
+            En Excel, configura la matrícula como texto para conservar ceros iniciales.
+        </p>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label" for="{{ form.archivo.id_for_label }}">{{ form.archivo.label }}</label>
+                {{ form.archivo }}
+                {% for error in form.archivo.errors %}
+                <p class="alert alert-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% for error in form.non_field_errors %}
+            <p class="alert alert-error">{{ error }}</p>
+            {% endfor %}
+            <div class="btn-group">
+                <a href="{% url 'usuarios:usuario_list' %}" class="btn-cancel">Regresar</a>
+                <button type="submit" class="btn-submit">Procesar archivo</button>
+            </div>
+        </form>
+
+        {% if report %}
+        <section class="glass-card" aria-live="polite">
+            <h2 class="page-title">{{ report.created_count }} usuarios creados exitosamente, {{ report.error_count }} con errores</h2>
+            {% if report.errors %}
+            <h3 class="form-label">Detalle por fila</h3>
+            <ul>
+                {% for error in report.errors %}
+                <li>Fila {{ error.row }}: {{ error.detail }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </section>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

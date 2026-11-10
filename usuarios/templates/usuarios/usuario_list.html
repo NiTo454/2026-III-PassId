@@ -8,9 +8,18 @@
         <h1 class="page-title">Gestión de Usuarios</h1>
         <p class="page-subtitle">Administración manual de cuentas de usuario, roles y credenciales</p>
     </div>
-    {% if user.is_superuser or perms.usuario.add_usuario %}<a href="{% url 'usuarios:usuario_create' %}" class="btn-create">
-        <i class="fa-solid fa-user-plus"></i> Registrar Usuario
-    </a>{% endif %}
+    <div class="actions">
+        {% if user.is_superuser or perms.usuario.add_usuario_masivo %}
+        <a href="{% url 'usuarios:usuario_import' %}" class="btn-cancel">
+            <i class="fa-solid fa-file-import"></i> Importar usuarios
+        </a>
+        {% endif %}
+        {% if user.is_superuser or perms.usuario.add_usuario %}
+        <a href="{% url 'usuarios:usuario_create' %}" class="btn-create">
+            <i class="fa-solid fa-user-plus"></i> Registrar Usuario
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 <div class="glass-card">
