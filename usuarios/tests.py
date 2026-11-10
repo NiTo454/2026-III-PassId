@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from django.contrib.auth.hashers import is_password_usable
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -13,15 +12,20 @@ class PerfilLecturaTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.perfil = Perfil.objects.get(nombre="lectura")
-        cls.usuario = Usuario.objects.get(username="lectura")
+        cls.usuario = Usuario(
+            username="test_lectura",
+            email="test-lectura@example.invalid",
+            whatsapp="",
+            grupo="",
+        )
+        cls.usuario.set_password("test-password")
+        cls.usuario.save()
+        cls.usuario.perfiles.add(cls.perfil)
 
     def setUp(self):
         self.client.force_login(self.usuario)
 
-    def test_seeded_account_has_only_read_permissions_and_no_password(self):
-        self.assertIn(self.perfil, self.usuario.perfiles.all())
-        self.assertFalse(is_password_usable(self.usuario.password))
-
+    def test_profile_has_only_read_permissions(self):
         permissions = set(self.usuario.get_all_permissions())
         self.assertIn("core.view_home", permissions)
         self.assertIn("evento.view_eventos_disponibles", permissions)
@@ -30,6 +34,9 @@ class PerfilLecturaTests(TestCase):
         self.assertNotIn("evento.add_evento", permissions)
         self.assertNotIn("otro.autorregistrarse", permissions)
         self.assertNotIn("usuario.change_usuario", permissions)
+
+    def test_migration_does_not_create_a_user_account(self):
+        self.assertFalse(Usuario.objects.filter(username="lectura").exists())
 
     def test_read_only_account_can_open_read_screens(self):
         route_names = (

@@ -1,4 +1,3 @@
-from django.contrib.auth.hashers import is_password_usable, make_password
 from django.db import migrations
 
 
@@ -25,14 +24,11 @@ READ_PERMISSIONS = (
 )
 
 
-def create_read_only_profile_and_user(apps, schema_editor):
+def create_read_only_profile(apps, schema_editor):
     database = schema_editor.connection.alias
     Permiso = apps.get_model("usuarios", "Permiso")
     Perfil = apps.get_model("usuarios", "Perfil")
     PerfilTienePermiso = apps.get_model("usuarios", "PerfilTienePermiso")
-    Usuario = apps.get_model("usuarios", "Usuario")
-    UsuarioTienePerfil = apps.get_model("usuarios", "UsuarioTienePerfil")
-    UsuarioTienePermiso = apps.get_model("usuarios", "UsuarioTienePermiso")
 
     profile, _ = Perfil.objects.using(database).get_or_create(nombre="lectura")
     permission_ids = []
@@ -57,40 +53,6 @@ def create_read_only_profile_and_user(apps, schema_editor):
         ignore_conflicts=True,
     )
 
-    email = "lectura@passid.invalid"
-    user = Usuario.objects.using(database).filter(username="lectura").first()
-    if user is None:
-        user = Usuario.objects.using(database).create(
-            username="lectura",
-            email=email,
-            password=make_password(None),
-            nombre="Usuario",
-            apaterno="Lectura",
-            amaterno="",
-            whatsapp="No aplica",
-            grupo="",
-            activo=True,
-            is_superuser=False,
-        )
-    elif (
-        user.email != email
-        or user.is_superuser
-        or is_password_usable(user.password)
-    ):
-        raise RuntimeError(
-            "Ya existe una cuenta 'lectura' con datos propios. "
-            "Renómbrala o resuelve el conflicto antes de aplicar esta migración."
-        )
-
-    UsuarioTienePerfil.objects.using(database).filter(
-        usuario_id=user.pk,
-    ).exclude(perfil_id=profile.pk).delete()
-    UsuarioTienePerfil.objects.using(database).get_or_create(
-        usuario_id=user.pk,
-        perfil_id=profile.pk,
-    )
-    UsuarioTienePermiso.objects.using(database).filter(usuario_id=user.pk).delete()
-
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -100,7 +62,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(
-            create_read_only_profile_and_user,
+            create_read_only_profile,
             migrations.RunPython.noop,
         ),
     ]
