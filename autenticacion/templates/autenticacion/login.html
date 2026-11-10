@@ -51,6 +51,12 @@
             </div>
         </form>
 
+        <div style="margin-top: 1rem; text-align: center;">
+            <a href="{% url 'usuarios:password_reset_request' %}">
+                ¿Olvidaste tu contraseña?
+            </a>
+        </div>
+
         <div style="margin-top: 1.5rem;">
             <a href="{% url 'autenticacion:registro' %}" class="btn-submit"
                style="width: 100%; justify-content: center; text-decoration: none;">

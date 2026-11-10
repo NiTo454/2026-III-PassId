@@ -14,6 +14,9 @@ from .views import (
     UsuarioDeleteView,
     MiPerfilView,
     CambiarPasswordView,
+    PasswordResetRequestView,
+    PasswordResetDoneView,
+    PasswordResetConfirmView,
 )
 
 app_name = "usuarios"
@@ -35,4 +38,19 @@ urlpatterns = [
     path("usuarios/<int:pk>/eliminar/", UsuarioDeleteView.as_view(), name="usuario_delete"),
     path("mi-perfil/", MiPerfilView.as_view(), name="mi_perfil"),
     path('cambiar-password/', CambiarPasswordView.as_view(), name='cambiar_password'),
+    path(
+        "solicitar-restablecimiento/",
+        PasswordResetRequestView.as_view(),
+        name="password_reset_request",
+    ),
+    path(
+        "restablecimiento-enviado/",
+        PasswordResetDoneView.as_view(),
+        name="password_reset_done",
+    ),
+    path(
+        "restablecer/<str:token>/",
+        PasswordResetConfirmView.as_view(),
+        name="password_reset_confirm",
+    ),
 ]

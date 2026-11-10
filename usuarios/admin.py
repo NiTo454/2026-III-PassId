@@ -34,6 +34,10 @@ class UsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(PasswordReset)
 class PasswordResetAdmin(admin.ModelAdmin):
-    list_display = ("usuario", "token", "expira_en")
-    search_fields = ("usuario__username", "token")
+    list_display = ("usuario", "expira_en", "creado_en")
+    search_fields = ("usuario__username",)
+    exclude = ("token",)
+    readonly_fields = ("usuario", "expira_en", "creado_en")
 
+    def has_add_permission(self, request):
+        return False

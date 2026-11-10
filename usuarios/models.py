@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.utils import timezone
 
 class Permiso(models.Model):
     """
@@ -218,10 +219,11 @@ class UsuarioTienePermiso(models.Model):
 
 
 class PasswordReset(models.Model):
-    """Almacena tokens de recuperación de contraseñas con expiración temporal."""
+    """Almacena hashes de tokens de recuperación con expiración temporal."""
     token = models.CharField(max_length=64, primary_key=True)
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, db_column="usuario_id")
     expira_en = models.DateTimeField(verbose_name="Fecha de expiración")
+    creado_en = models.DateTimeField(default=timezone.now, verbose_name="Fecha de creación")
 
     class Meta:
         db_table = "password_reset"
