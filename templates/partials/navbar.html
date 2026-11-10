@@ -49,6 +49,11 @@
                     <a href="{% url 'academico:mi_progreso' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-chart-line"></i> Mi Progreso
                     </a>
+                    {% if user.is_superuser or perms.otro.autorregistrarse %}
+                    <a href="{% url 'eventos:eventos_disponibles' %}" class="nav-dropdown-item" role="menuitem">
+                        <i class="fa-solid fa-calendar-plus"></i> Eventos Disponibles
+                    </a>
+                    {% endif %}
                 </div>
             </div>
 

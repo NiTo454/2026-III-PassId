@@ -1,16 +1,15 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
-from django.db.models import Q
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View
+from django.db.models import Q, Exists, OuterRef
 from django.contrib import messages
+from django.utils import timezone
 from core.mixins import PassIdPermissionMixin
 from .models import Evento, Registro, Asistencia
 from .forms import EventoForm, RegistroEventoForm, AsistenciaEventoForm
 
 
-# ==============================================================================
-# VISTAS DE EVENTO
-# ==============================================================================
+
 class EventoListView(PassIdPermissionMixin, ListView):
     model = Evento
     template_name = "eventos/evento_list.html"
@@ -99,9 +98,7 @@ class EventoDeleteView(PassIdPermissionMixin, DeleteView):
         return context
 
 
-# ==============================================================================
-# VISTAS DE PRE-REGISTRO A EVENTO
-# ==============================================================================
+
 class RegistroListView(PassIdPermissionMixin, ListView):
     model = Registro
     template_name = "eventos/registro_list.html"
@@ -190,9 +187,7 @@ class RegistroDeleteView(PassIdPermissionMixin, DeleteView):
         return context
 
 
-# ==============================================================================
-# VISTAS DE ASISTENCIA A EVENTO
-# ==============================================================================
+
 class AsistenciaListView(PassIdPermissionMixin, ListView):
     model = Asistencia
     template_name = "eventos/asistencia_list.html"
@@ -260,3 +255,88 @@ class AsistenciaDeleteView(PassIdPermissionMixin, DeleteView):
         context["title"] = "Eliminar Registro de Asistencia"
         context["cancel_url"] = reverse_lazy("eventos:asistencia_list")
         return context
+
+
+
+class EventosDisponiblesView(PassIdPermissionMixin, ListView):
+    model = Evento
+    template_name = "eventos/eventos_disponibles.html"
+    context_object_name = "eventos"
+    paginate_by = 10
+    required_permission = "otro.autorregistrarse"
+
+    def get_queryset(self):
+        ahora = timezone.now()
+        queryset = Evento.objects.filter(
+            fecha_hora__gt=ahora,
+            permitir_autorregistro=True,
+        ).order_by("fecha_hora")
+
+        queryset = queryset.annotate(
+            ya_inscrito=Exists(
+                Registro.objects.filter(
+                    evento=OuterRef("pk"),
+                    usuario=self.request.user,
+                )
+            )
+        )
+
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(nombre__icontains=query) |
+                Q(lugar__icontains=query)
+            )
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["query"] = self.request.GET.get("q", "")
+        context["page_title"] = "Eventos Disponibles"
+        context["page_subtitle"] = "Inscríbete a conferencias y actividades extracurriculares"
+        context["search_placeholder"] = "Buscar por nombre o lugar..."
+        return context
+
+
+class AutoregistroInscribirView(PassIdPermissionMixin, View):
+    required_permission = "otro.autorregistrarse"
+
+    def post(self, request, pk):
+        ahora = timezone.now()
+        evento = get_object_or_404(
+            Evento,
+            pk=pk,
+            permitir_autorregistro=True,
+            fecha_hora__gt=ahora,
+        )
+
+        _, created = Registro.objects.get_or_create(
+            evento=evento,
+            usuario=request.user,
+        )
+
+        if created:
+            messages.success(request, f"¡Te has inscrito exitosamente a '{evento.nombre}'!")
+        else:
+            messages.error(request, f"Ya estás inscrito en '{evento.nombre}'.")
+
+        return redirect("eventos:eventos_disponibles")
+
+
+class AutoregistroCancelarView(PassIdPermissionMixin, View):
+    required_permission = "otro.autorregistrarse"
+
+    def post(self, request, pk):
+        ahora = timezone.now()
+        registro = get_object_or_404(
+            Registro,
+            evento__pk=pk,
+            usuario=request.user,
+            evento__fecha_hora__gt=ahora,
+        )
+
+        nombre_evento = registro.evento.nombre
+        registro.delete()
+        messages.success(request, f"Tu inscripción a '{nombre_evento}' ha sido cancelada.")
+
+        return redirect("eventos:eventos_disponibles")

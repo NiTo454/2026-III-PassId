@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}Eventos Disponibles - PassID{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">{{ page_title }}</h1>
+        {% if page_subtitle %}
+        <p class="page-subtitle">{{ page_subtitle }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="glass-card">
+    <form method="get" class="search-bar">
+        <input type="text" name="q" value="{{ query|default:'' }}" class="search-input" placeholder="{{ search_placeholder|default:'Buscar...' }}">
+        <button type="submit" class="btn-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Evento</th>
+                    <th>Fecha y Hora</th>
+                    <th>Lugar</th>
+                    <th>Responsable</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in eventos %}
+                <tr>
+                    <td><strong>{{ e.nombre }}</strong></td>
+                    <td>
+                        <i class="fa-regular fa-clock icon-muted"></i>
+                        {{ e.fecha_hora|date:"d/m/Y H:i" }}
+                    </td>
+                    <td>{{ e.lugar|default:"--" }}</td>
+                    <td>{{ e.responsable_interno|default:e.responsable_externo|default:"--" }}</td>
+                    <td>
+                        {% if e.ya_inscrito %}
+                        <span class="badge-status badge-active">
+                            <i class="fa-solid fa-circle-check"></i> Inscrito
+                        </span>
+                        {% else %}
+                        <span class="text-muted-sm">Disponible</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if e.ya_inscrito %}
+                        <form method="post" action="{% url 'eventos:autoregistro_cancelar' e.pk %}" class="form-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-action btn-delete btn-autoregistro" title="Cancelar inscripción">
+                                <i class="fa-solid fa-xmark"></i> Cancelar
+                            </button>
+                        </form>
+                        {% else %}
+                        <form method="post" action="{% url 'eventos:autoregistro_inscribir' e.pk %}" class="form-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-action btn-edit btn-autoregistro" title="Inscribirme">
+                                <i class="fa-solid fa-user-plus"></i> Inscribirme
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="table-empty">
+                        No hay eventos disponibles para inscripción en este momento.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action btn-page">&laquo; Anterior</a>
+        {% endif %}
+        <span class="pagination-info">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action btn-page">Siguiente &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
