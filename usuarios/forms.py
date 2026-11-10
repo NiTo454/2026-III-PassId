@@ -122,6 +122,10 @@ class UsuarioUpdateForm(forms.ModelForm):
         label="Perfiles / Roles"
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._original_password = self.instance.password
+
     class Meta:
         model = Usuario
         fields = [
@@ -160,6 +164,8 @@ class UsuarioUpdateForm(forms.ModelForm):
         password = self.cleaned_data.get("password")
         if password:
             user.set_password(password)
+        else:
+            user.password = self._original_password
         if commit:
             user.save()
             self.save_m2m()

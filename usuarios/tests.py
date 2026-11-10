@@ -9,7 +9,61 @@ from django.urls import reverse
 from django.utils import timezone
 
 from eventos.models import Evento
+from .forms import UsuarioUpdateForm
 from .models import Perfil, Permiso, Usuario
+
+
+class UsuarioUpdatePasswordTests(TestCase):
+    def setUp(self):
+        self.usuario = Usuario(
+            username="usuario_edicion",
+            email="usuario-edicion@example.invalid",
+            whatsapp="5550000000",
+            grupo="A1",
+        )
+        self.usuario.set_password("password-original")
+        self.usuario.save()
+
+    def form_data(self, password):
+        return {
+            "username": self.usuario.username,
+            "email": self.usuario.email,
+            "password": password,
+            "nombre": "",
+            "apaterno": "",
+            "amaterno": "",
+            "categoria": "",
+            "whatsapp": self.usuario.whatsapp,
+            "grupo": self.usuario.grupo,
+            "matricula": "",
+            "activo": "on",
+        }
+
+    def test_blank_password_preserves_existing_password_when_updating_user(self):
+        data = self.form_data("")
+        data["nombre"] = "Nombre actualizado"
+        form = UsuarioUpdateForm(data=data, instance=self.usuario)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+
+        self.usuario.refresh_from_db()
+        self.assertEqual(self.usuario.nombre, "Nombre actualizado")
+        self.assertTrue(self.usuario.check_password("password-original"))
+        self.assertNotEqual(self.usuario.password, "")
+
+    def test_nonblank_password_replaces_existing_password(self):
+        form = UsuarioUpdateForm(
+            data=self.form_data("password-nuevo"),
+            instance=self.usuario,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.check_password("password-nuevo"))
+        self.assertFalse(self.usuario.check_password("password-original"))
 
 
 class PerfilLecturaTests(TestCase):
