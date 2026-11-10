@@ -52,7 +52,7 @@
                         <i class="fa-solid fa-chart-line"></i> Mi Progreso
                     </a>
                     {% endif %}
-                    {% if user.is_superuser or perms.otro.autorregistrarse %}
+                    {% if user.is_superuser or perms.otro.autorregistrarse or perms.evento.view_eventos_disponibles %}
                     <a href="{% url 'eventos:eventos_disponibles' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-calendar-plus"></i> Eventos Disponibles
                     </a>
