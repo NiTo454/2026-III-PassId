@@ -694,6 +694,56 @@ footer {
     object-fit: contain;
 }
 
+.table-responsive {
+    overflow-x: auto;
+}
+
+.icon-muted {
+    color: var(--text-muted);
+}
+
+.text-muted-sm {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.form-inline {
+    display: inline;
+}
+
+.btn-autoregistro {
+    width: auto;
+    padding: 0.4rem 0.85rem;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.table-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding-bottom: 1rem;
+}
+
+.pagination-info {
+    color: var(--text-muted);
+    align-self: center;
+    font-size: 0.9rem;
+}
+
+.btn-page {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+}
+
 /* ── Responsive: menú móvil ── */
 @media (max-width: 900px) {
     .nav-hamburger {

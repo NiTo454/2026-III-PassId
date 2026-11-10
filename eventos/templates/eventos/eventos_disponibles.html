@@ -18,7 +18,7 @@
         <button type="submit" class="btn-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
     </form>
 
-    <div style="overflow-x: auto;">
+    <div class="table-responsive">
         <table class="table">
             <thead>
                 <tr>
@@ -35,7 +35,7 @@
                 <tr>
                     <td><strong>{{ e.nombre }}</strong></td>
                     <td>
-                        <i class="fa-regular fa-clock" style="color: var(--text-muted);"></i>
+                        <i class="fa-regular fa-clock icon-muted"></i>
                         {{ e.fecha_hora|date:"d/m/Y H:i" }}
                     </td>
                     <td>{{ e.lugar|default:"--" }}</td>
@@ -46,21 +46,21 @@
                             <i class="fa-solid fa-circle-check"></i> Inscrito
                         </span>
                         {% else %}
-                        <span style="color: var(--text-muted); font-size: 0.85rem;">Disponible</span>
+                        <span class="text-muted-sm">Disponible</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if e.ya_inscrito %}
-                        <form method="post" action="{% url 'eventos:autoregistro_cancelar' e.pk %}" style="display: inline;">
+                        <form method="post" action="{% url 'eventos:autoregistro_cancelar' e.pk %}" class="form-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn-action btn-delete" title="Cancelar inscripción" style="width: auto; padding: 0.4rem 0.85rem; gap: 0.4rem; font-size: 0.8rem; font-weight: 600;">
+                            <button type="submit" class="btn-action btn-delete btn-autoregistro" title="Cancelar inscripción">
                                 <i class="fa-solid fa-xmark"></i> Cancelar
                             </button>
                         </form>
                         {% else %}
-                        <form method="post" action="{% url 'eventos:autoregistro_inscribir' e.pk %}" style="display: inline;">
+                        <form method="post" action="{% url 'eventos:autoregistro_inscribir' e.pk %}" class="form-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn-action btn-edit" title="Inscribirme" style="width: auto; padding: 0.4rem 0.85rem; gap: 0.4rem; font-size: 0.8rem; font-weight: 600;">
+                            <button type="submit" class="btn-action btn-edit btn-autoregistro" title="Inscribirme">
                                 <i class="fa-solid fa-user-plus"></i> Inscribirme
                             </button>
                         </form>
@@ -69,7 +69,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                    <td colspan="6" class="table-empty">
                         No hay eventos disponibles para inscripción en este momento.
                     </td>
                 </tr>
@@ -79,15 +79,15 @@
     </div>
 
     {% if is_paginated %}
-    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; padding-bottom: 1rem;">
+    <div class="pagination">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action" style="padding: 0.5rem 1rem; border-radius: 6px;">&laquo; Anterior</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action btn-page">&laquo; Anterior</a>
         {% endif %}
-        <span style="color: var(--text-muted); align-self: center; font-size: 0.9rem;">
+        <span class="pagination-info">
             Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
         </span>
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action" style="padding: 0.5rem 1rem; border-radius: 6px;">Siguiente &raquo;</a>
+        <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action btn-page">Siguiente &raquo;</a>
         {% endif %}
     </div>
     {% endif %}
