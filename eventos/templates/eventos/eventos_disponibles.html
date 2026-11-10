@@ -50,6 +50,7 @@
                         {% endif %}
                     </td>
                     <td>
+                        {% if perms.otro.autorregistrarse %}
                         {% if e.ya_inscrito %}
                         <form method="post" action="{% url 'eventos:autoregistro_cancelar' e.pk %}" class="form-inline">
                             {% csrf_token %}
@@ -64,6 +65,9 @@
                                 <i class="fa-solid fa-user-plus"></i> Inscribirme
                             </button>
                         </form>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted-sm">Solo lectura</span>
                         {% endif %}
                     </td>
                 </tr>

@@ -266,7 +266,7 @@ class EventosDisponiblesView(PassIdPermissionMixin, ListView):
     template_name = "eventos/eventos_disponibles.html"
     context_object_name = "eventos"
     paginate_by = 10
-    required_permission = "otro.autorregistrarse"
+    required_permission = "evento.view_eventos_disponibles"
 
     def get_queryset(self):
         ahora = timezone.now()
