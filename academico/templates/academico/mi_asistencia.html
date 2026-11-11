@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mi asistencia | PassID{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Mi asistencia</h1>
+        <p class="page-subtitle">Registra tu asistencia a las clases inscritas de hoy ({{ hoy|date:"d/m/Y" }}).</p>
+    </div>
+</section>
+
+<div id="attendance-page"
+     data-submit-url="{% url 'academico:enviar_asistencia' %}"
+     data-failure-url="{% url 'academico:reportar_fallo_ubicacion' %}">
+    {% for clase in clases %}
+    <article class="glass-card attendance-card">
+        <div>
+            <h2 class="attendance-title">{{ clase.horario.materia.nombre }}</h2>
+            <p>{{ clase.horario.materia.clave }} · Grupo {{ clase.horario.grupo }} · {{ clase.horario.hora_inicio|time:"H:i" }}–{{ clase.horario.hora_fin|time:"H:i" }}</p>
+            <p>{{ clase.horario.aula|default:"Aula no asignada" }}</p>
+        </div>
+        {% if clase.asistencia %}
+            <span class="badge-status badge-active">Asistencia registrada · {{ clase.asistencia.hora|time:"H:i" }}</span>
+        {% else %}
+            <button type="button" class="btn-primary attendance-submit" data-horario-id="{{ clase.horario.pk }}">
+                <i class="fa-solid fa-location-crosshairs"></i> Marcar asistencia con ubicación
+            </button>
+            <p class="attendance-status" aria-live="polite"></p>
+            {% if clase.incidencia and clase.incidencia.intentos >= 3 %}
+            <p class="attendance-status">Ya se notificó al administrador ({{ clase.incidencia.intentos }} intentos).</p>
+            {% elif clase.incidencia %}
+            <p class="attendance-status">Intentos fallidos: {{ clase.incidencia.intentos }} de 3.</p>
+            {% endif %}
+        {% endif %}
+    </article>
+    {% empty %}
+    <div class="glass-card">
+        <p>No tienes clases inscritas programadas para hoy.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="location-modal" class="location-modal" hidden role="dialog" aria-modal="true" aria-labelledby="location-modal-title">
+    <div class="location-modal-content">
+        <button type="button" class="location-modal-close" aria-label="Cerrar">&times;</button>
+        <h2 id="location-modal-title">No se pudo obtener tu ubicación</h2>
+        <p id="location-modal-message">Revisa el permiso de ubicación del navegador y vuelve a intentarlo.</p>
+        <p class="location-help">En iPhone/iPad verifica que el sitio use HTTPS y que Safari tenga permiso de ubicación en los ajustes de privacidad. Si instalaste la PWA, cierra y vuelve a abrirla después de cambiar el permiso.</p>
+        <p id="location-attempts" aria-live="polite"></p>
+        <button type="button" id="location-retry" class="btn-primary">Intentar de nuevo</button>
+        <button type="button" id="location-dismiss" class="btn-secondary">Cerrar</button>
+    </div>
+</div>
+
+<form id="csrf-form" hidden>{% csrf_token %}</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/asistencia.js' %}" defer></script>
+{% endblock %}
