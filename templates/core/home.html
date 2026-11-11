@@ -1,160 +1,175 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block title %}Inicio - PassID{% endblock %}
+
 {% block content %}
-<div class="main-container">
-
-    <div class="grid-2">
-
-        <div class="form-container">
-            <div class="glass-card">
-                <div class="page-header">
-                    <div>
-                        <span class="form-label"><i class="fa-regular fa-id-card"></i> PASS-ID DIGITAL</span>
-                    </div>
-                    <div class="actions">
-                        <span class="badge-status badge-active"><i class="fa-solid fa-check"></i></span>
-                    </div>
-                </div>
-                
-                <br>
-                
-                <div class="text-center">
-                    <div class="pass-id-qr-container">
-                        {% if request.user.matricula %}
-                        {% if user.is_superuser or perms.asistencia_qr.ver_mi_qr %}
-                        <img
-                            class="pass-id-qr"
-                            id="pass-id-qr"
-                            src="{% url 'asistencia_qr:qr_imagen' %}"
-                            data-qr-refresh-url="{% url 'asistencia_qr:qr_imagen' %}"
-                            alt="Código QR firmado de asistencia PASS-ID"
-                        >
-                        {% else %}
-                        <p class="page-subtitle">El QR de asistencia no está habilitado para tu perfil.</p>
-                        {% endif %}
-                        {% else %}
-                        <p class="page-subtitle">Tu cuenta no tiene una matrícula registrada.</p>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <br><br>
-                
-                <div class="text-center">
-                    <div class="form-title">{{ request.user.nombre|default:request.user.username }}</div>
-                    <br>
-                    <span class="badge-role">
-                        <i class="fa-solid fa-id-badge"></i> MATRÍCULA: {{ request.user.matricula|default:"0" }}
-                    </span>
-                </div>
-            </div>
+<div class="dashboard">
+    <div class="dashboard-heading">
+        <div>
+            <p class="dashboard-eyebrow">PANEL PERSONAL</p>
+            <h1 class="page-title">¡Hola, {{ request.user.nombre|default:request.user.username }}!</h1>
+            <p class="page-subtitle">Consulta tu actividad académica y tus eventos.</p>
         </div>
-
-        <div> 
-            
-            <div class="form-container">
-                <div class="glass-card">
-                    <h2 class="page-title">¡Hola, {{ request.user.nombre|default:request.user.username }}!</h2>
-                    <div class="page-subtitle">Resumen de tu actividad académica y eventos PASS-ID 2026.</div>
-                    
-                    <br><br>
-                    
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <span class="form-label"><i class="fa-solid fa-book"></i> MATERIAS</span>
-                            <div class="page-title">{{ estadisticas.materias|default:"0" }}</div>
-                        </div>
-                        <div class="form-group">
-                            <span class="form-label"><i class="fa-solid fa-clock"></i> HRS / SEM</span>
-                            <div class="page-title">{{ estadisticas.horas_sem|default:"0h" }}</div>
-                        </div>
-                        <div class="form-group">
-                            <span class="form-label"><i class="fa-regular fa-calendar-check"></i> EVENTOS</span>
-                            <div class="page-title">{{ estadisticas.eventos|default:"1" }}</div>
-                        </div>
-                        <div class="form-group">
-                            <span class="form-label"><i class="fa-solid fa-user-check"></i> ASIST. EVT</span>
-                            <div class="page-title">{{ estadisticas.asistencias_evt|default:"0" }}</div>
-                        </div>
-                    </div>
-                    
-                    <br>
-                    <div class="page-subtitle">
-                        Progreso de Eventos: {{ estadisticas.asistencias_evt|default:"0" }} de {{ estadisticas.eventos|default:"1" }} asistidos
-                    </div>
-                </div>
-            </div>
-            
-            <br> 
-
-            <div class="form-container">
-                <div class="glass-card">
-                    <span class="form-label"><i class="fa-solid fa-graduation-cap"></i> SIGUIENTE CLASE ACADÉMICA</span>
-                    
-                    <br><br>
-                    
-                    {% if siguiente_clase %}
-                        <div class="form-title">{{ siguiente_clase.materia.nombre }}</div>
-                        <div class="page-subtitle">
-                            {{ siguiente_clase.hora_inicio|time:"H:i" }} - Aula: {{ siguiente_clase.aula.codigo }}
-                        </div>
-                    {% else %}
-                        <div class="form-title">Sin clases agendadas</div>
-                        <div class="page-subtitle">No tienes clases académicas registradas para el período actual.</div>
-                    {% endif %}
-                    
-                    <br><br>
-                    
-                    <div class="actions">
-                        {% if user.is_superuser or perms.horario.view_horario %}
-                        <a href="{% url 'academico:horario_list' %}" class="btn-cancel">
-                            <i class="fa-regular fa-calendar"></i> Ver Horarios
-                        </a>
-                        {% elif perms.horario.view_carga_academica %}
-                        <a href="{% url 'academico:carga_academica' %}" class="btn-cancel">
-                            <i class="fa-regular fa-calendar"></i> Ver Mi Carga Académica
-                        </a>
-                        {% endif %}
-                        {% if user.is_superuser or perms.asistencia_clase.view_progreso_asistencia %}
-                        <a href="{% url 'academico:mi_progreso' %}" class="btn-cancel">
-                            <i class="fa-solid fa-chart-line"></i> Mi Asistencia
-                        </a>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-        </div> 
-    </div> 
-
-    <br>
-
-    <div class="form-container">
-        <div class="glass-card">
-            <div class="page-header">
-                <div>
-                    <span class="form-label"><i class="fa-solid fa-hourglass-half"></i> EVENTOS Y ACTIVIDADES EXTRAESCOLARES</span>
-                </div>
-                {% if user.is_superuser or perms.evento.view_evento %}
-                <div class="actions">
-                    <a href="{% url 'eventos:evento_list' %}" class="btn-cancel"><i class="fa-solid fa-calendar-plus"></i> Ver Catálogo</a>
-                </div>
-                {% endif %}
-            </div>
-            
-            <br>
-            
-            <div class="form-title">{{ evento_proximo.nombre|default:"Taller" }}</div>
-            <div class="page-subtitle">
-                <i class="fa-regular fa-clock"></i> {{ evento_proximo.fecha|default:"20/12/2026 08:10" }} &nbsp; | &nbsp; 
-                <i class="fa-solid fa-location-dot"></i> {{ evento_proximo.lugar|default:"ud2" }}
-            </div>
-        </div>
+        <span class="badge-status badge-active">PassID</span>
     </div>
 
-</div>
+    <div class="dashboard-layout">
+        <section class="glass-card dashboard-card dashboard-id-card" aria-labelledby="pass-id-title">
+            <div class="dashboard-section-heading">
+                <div>
+                    <p class="dashboard-eyebrow">IDENTIFICACIÓN</p>
+                    <h2 class="dashboard-card-title" id="pass-id-title">Pass-ID digital</h2>
+                </div>
+                <i class="fa-regular fa-id-card dashboard-heading-icon" aria-hidden="true"></i>
+            </div>
 
+            <div class="dashboard-id-content">
+                {% if request.user.matricula %}
+                    {% if user.is_superuser or perms.asistencia_qr.ver_mi_qr %}
+                    <img
+                        class="pass-id-qr dashboard-qr"
+                        id="pass-id-qr"
+                        src="{% url 'asistencia_qr:qr_imagen' %}"
+                        data-qr-refresh-url="{% url 'asistencia_qr:qr_imagen' %}"
+                        alt="Código QR firmado de asistencia Pass-ID"
+                    >
+                    {% else %}
+                    <p class="dashboard-empty">El QR de asistencia no está habilitado para tu perfil.</p>
+                    {% endif %}
+                {% else %}
+                <p class="dashboard-empty">Tu cuenta no tiene una matrícula registrada.</p>
+                {% endif %}
+
+                <div class="dashboard-identity">
+                    <h3>{{ request.user.nombre|default:request.user.username }}</h3>
+                    <p>Matrícula <strong>{{ request.user.matricula|default:"No registrada" }}</strong></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="glass-card dashboard-card" aria-labelledby="summary-title">
+            <div class="dashboard-section-heading">
+                <div>
+                    <p class="dashboard-eyebrow">RESUMEN</p>
+                    <h2 class="dashboard-card-title" id="summary-title">Tu actividad</h2>
+                </div>
+            </div>
+
+            <dl class="dashboard-stat-grid">
+                <div class="dashboard-stat">
+                    <dt><i class="fa-solid fa-book" aria-hidden="true"></i> Materias inscritas</dt>
+                    <dd>{{ estadisticas.materias }}</dd>
+                    <span>inscripciones activas</span>
+                </div>
+                <div class="dashboard-stat">
+                    <dt><i class="fa-solid fa-clock" aria-hidden="true"></i> Carga semanal</dt>
+                    <dd>{{ estadisticas.horas_sem }} <small>h</small></dd>
+                    <span>horas de clase</span>
+                </div>
+                <div class="dashboard-stat">
+                    <dt><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> Eventos</dt>
+                    <dd>{{ estadisticas.eventos }}</dd>
+                    <span>registrados</span>
+                </div>
+                <div class="dashboard-stat">
+                    <dt><i class="fa-solid fa-user-check" aria-hidden="true"></i> Asistencias</dt>
+                    <dd>{{ estadisticas.asistencias_evt }}</dd>
+                    <span>eventos confirmados</span>
+                </div>
+            </dl>
+            <p class="dashboard-footnote">
+                Has asistido a {{ estadisticas.asistencias_evt }} de {{ estadisticas.eventos }} eventos registrados.
+            </p>
+        </section>
+    </div>
+
+    <div class="dashboard-layout dashboard-layout-secondary">
+        <section class="glass-card dashboard-card" aria-labelledby="next-class-title">
+            <div class="dashboard-section-heading">
+                <div>
+                    <p class="dashboard-eyebrow">HOY</p>
+                    <h2 class="dashboard-card-title" id="next-class-title">Siguiente clase</h2>
+                </div>
+                <i class="fa-solid fa-graduation-cap dashboard-heading-icon" aria-hidden="true"></i>
+            </div>
+
+            {% if siguiente_clase %}
+            <div class="dashboard-highlight">
+                <div class="dashboard-class-time">
+                    <span>{% if clase_en_curso %}En curso{% else %}Inicio{% endif %}</span>
+                    <strong>{{ siguiente_clase.hora_inicio|time:"H:i" }}</strong>
+                </div>
+                <div>
+                    <h3>{{ siguiente_clase.materia.nombre }}</h3>
+                    <p>
+                        {{ siguiente_clase.hora_inicio|time:"H:i" }}–{{ siguiente_clase.hora_fin|time:"H:i" }}
+                        <span aria-hidden="true">·</span>
+                        {% if siguiente_clase.aula %}{{ siguiente_clase.aula.codigo }}{% else %}Aula por asignar{% endif %}
+                    </p>
+                    <p>Grupo {{ siguiente_clase.grupo }} · {{ siguiente_clase.periodo }}</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="dashboard-empty-state">
+                <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                <p>
+                    {% if hay_clases_hoy %}
+                    Ya no tienes clases pendientes para hoy.
+                    {% else %}
+                    No tienes clases programadas para hoy.
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+
+            <nav class="actions dashboard-actions" aria-label="Accesos académicos">
+                {% if user.is_superuser or perms.horario.view_horario %}
+                <a href="{% url 'academico:horario_list' %}" class="btn-cancel">
+                    <i class="fa-regular fa-calendar" aria-hidden="true"></i> Ver horarios
+                </a>
+                {% elif perms.horario.view_carga_academica %}
+                <a href="{% url 'academico:carga_academica' %}" class="btn-cancel">
+                    <i class="fa-regular fa-calendar" aria-hidden="true"></i> Mi carga académica
+                </a>
+                {% endif %}
+                {% if user.is_superuser or perms.asistencia_clase.view_progreso_asistencia %}
+                <a href="{% url 'academico:mi_progreso' %}" class="btn-cancel">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i> Mi asistencia
+                </a>
+                {% endif %}
+            </nav>
+        </section>
+
+        <section class="glass-card dashboard-card dashboard-event-card" aria-labelledby="next-event-title">
+            <div class="dashboard-section-heading">
+                <div>
+                    <p class="dashboard-eyebrow">AGENDA</p>
+                    <h2 class="dashboard-card-title" id="next-event-title">Próximo evento</h2>
+                </div>
+                <i class="fa-regular fa-calendar-check dashboard-heading-icon" aria-hidden="true"></i>
+            </div>
+
+            {% if evento_proximo %}
+            <div class="dashboard-event-content">
+                <h3>{{ evento_proximo.nombre }}</h3>
+                <p><i class="fa-regular fa-clock" aria-hidden="true"></i> {{ evento_proximo.fecha_hora|date:"d/m/Y · H:i" }}</p>
+                <p><i class="fa-solid fa-location-dot" aria-hidden="true"></i> {{ evento_proximo.lugar|default:"Lugar por confirmar" }}</p>
+            </div>
+            {% else %}
+            <div class="dashboard-empty-state">
+                <p>No hay eventos futuros programados.</p>
+            </div>
+            {% endif %}
+
+            {% if user.is_superuser or perms.evento.view_evento %}
+            <a href="{% url 'eventos:evento_list' %}" class="btn-cancel dashboard-event-link">
+                Ver catálogo de eventos
+            </a>
+            {% endif %}
+        </section>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}

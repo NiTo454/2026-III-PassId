@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Solicitudes de asistencia | PassID{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div>
+        <h1 class="page-title">Solicitudes de asistencia</h1>
+        <p class="page-subtitle">Alumnos que reportaron tres fallos al enviar su ubicación.</p>
+    </div>
+</section>
+
+<div class="glass-card table-responsive">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Alumno</th>
+                <th>Clase</th>
+                <th>Fecha</th>
+                <th>Intentos</th>
+                <th>Motivos reportados</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for incidencia in incidencias %}
+            <tr>
+                <td>{{ incidencia.usuario.nombre|default:incidencia.usuario.username }} {{ incidencia.usuario.apaterno|default:"" }}<br>{{ incidencia.usuario.matricula|default:"" }}</td>
+                <td>{{ incidencia.horario.materia.nombre }} · Grupo {{ incidencia.horario.grupo }}<br>{{ incidencia.horario.hora_inicio|time:"H:i" }}–{{ incidencia.horario.hora_fin|time:"H:i" }}</td>
+                <td>{{ incidencia.fecha|date:"d/m/Y" }}</td>
+                <td>{{ incidencia.intentos }}/{{ intentos_maximos }}</td>
+                <td class="incident-reason">{{ incidencia.motivo|linebreaksbr }}</td>
+                <td>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="incidencia_id" value="{{ incidencia.pk }}">
+                        <button type="submit" class="btn-primary">Registrar asistencia manual</button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="table-empty">No hay solicitudes pendientes.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
