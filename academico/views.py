@@ -1,11 +1,28 @@
-from django.shortcuts import render
-from django.urls import reverse_lazy
+from urllib.parse import urlencode
+
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse, reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
 from django.db.models import Count, F, Q
 from django.contrib import messages
 from core.mixins import PassIdPermissionMixin
-from .models import Carrera, Aula, Materia, Horario, Inscripcion
-from .forms import CarreraForm, AulaForm, MateriaForm, HorarioForm, InscripcionForm
+from .models import (
+    Aula,
+    Carrera,
+    Horario,
+    Inscripcion,
+    Materia,
+    ProfesorDisponibilidad,
+)
+from .forms import (
+    AulaForm,
+    CarreraForm,
+    HorarioForm,
+    InscripcionForm,
+    MateriaForm,
+    ProfesorDisponibilidadForm,
+)
 from django.contrib.auth import get_user_model
 
 
@@ -724,3 +741,221 @@ class CargaAcademicaView(PassIdPermissionMixin, TemplateView):
             )
 
         return context
+
+
+class DisponibilidadDocenteView(PassIdPermissionMixin, TemplateView):
+    template_name = "academico/disponibilidad_docente.html"
+    required_permission = "horario.manage_disponibilidad"
+
+    def es_administrador(self):
+        return (
+            self.request.user.is_superuser
+            or self.request.user.has_perm("horario.admin")
+        )
+
+    def get_profesores(self):
+        Usuario = get_user_model()
+        return Usuario.objects.filter(
+            Q(perfiles__nombre__iexact="profesor")
+            | Q(
+                perfiles__permisos__tipo="horario",
+                perfiles__permisos__codename="manage_disponibilidad",
+            )
+            | Q(
+                permisos_directos__tipo="horario",
+                permisos_directos__codename="manage_disponibilidad",
+            )
+            | Q(is_superuser=True),
+            activo=True,
+        ).distinct().order_by("nombre", "apaterno", "username")
+
+    def get_profesor_seleccionado(self):
+        if not self.es_administrador():
+            return self.request.user
+
+        profesores = self.get_profesores()
+        profesor_id = (
+            self.request.POST.get("profesor_id")
+            or self.request.GET.get("profesor_id")
+            or ""
+        ).strip()
+        if not profesor_id:
+            seleccionado = profesores.filter(pk=self.request.user.pk).first()
+            return seleccionado or profesores.first() or self.request.user
+        if not profesor_id.isdigit():
+            raise Http404("El profesor solicitado no existe.")
+        return get_object_or_404(profesores, pk=int(profesor_id))
+
+    def get_periodo(self, profesor):
+        periodo_nuevo = (
+            self.request.POST.get("nuevo_periodo")
+            or self.request.GET.get("nuevo_periodo")
+            or ""
+        ).strip()
+        periodo_solicitado = (
+            self.request.POST.get("periodo")
+            or self.request.GET.get("periodo")
+            or ""
+        ).strip()
+        if periodo_solicitado == "__nuevo__":
+            return periodo_nuevo
+
+        periodo = periodo_nuevo or periodo_solicitado
+        if periodo:
+            return periodo
+
+        return (
+            ProfesorDisponibilidad.objects.filter(profesor=profesor)
+            .order_by("-periodo")
+            .values_list("periodo", flat=True)
+            .first()
+            or Horario.objects.filter(profesor=profesor)
+            .order_by("-periodo")
+            .values_list("periodo", flat=True)
+            .first()
+            or ""
+        )
+
+    def get_periodos(self):
+        periodos = set(
+            ProfesorDisponibilidad.objects.order_by()
+            .values_list("periodo", flat=True)
+            .distinct()
+        )
+        periodos.update(
+            Horario.objects.order_by()
+            .values_list("periodo", flat=True)
+            .distinct()
+        )
+        periodos.update(
+            Inscripcion.objects.order_by()
+            .values_list("periodo", flat=True)
+            .distinct()
+        )
+        periodos.update(
+            Materia.objects.exclude(periodo__isnull=True)
+            .exclude(periodo="")
+            .order_by()
+            .values_list("periodo", flat=True)
+            .distinct()
+        )
+        return sorted((periodo for periodo in periodos if periodo), reverse=True)
+
+    def get_context_data(self, **kwargs):
+        form = kwargs.pop("form", None)
+        profesor = kwargs.pop("profesor", None) or self.get_profesor_seleccionado()
+        periodo = kwargs.pop("periodo", None)
+        if periodo is None:
+            periodo = self.get_periodo(profesor)
+        dia_seleccionado = kwargs.pop(
+            "dia_seleccionado",
+            self.request.GET.get("dia", ""),
+        )
+        periodos = self.get_periodos()
+        periodo_nuevo_activo = bool(
+            self.request.GET.get("periodo") == "__nuevo__"
+            or (periodo and periodo not in periodos)
+        )
+
+        if form is None:
+            form = ProfesorDisponibilidadForm(
+                profesor=profesor,
+                initial={
+                    "periodo": periodo,
+                    "dia_semana": dia_seleccionado,
+                },
+            )
+
+        disponibilidades = ProfesorDisponibilidad.objects.filter(
+            profesor=profesor,
+            periodo=periodo,
+        ).order_by("hora_inicio", "hora_fin")
+        bloques_por_dia = {
+            dia: [] for dia, _ in Horario._meta.get_field("dia_semana").choices
+        }
+        for bloque in disponibilidades:
+            bloques_por_dia[bloque.dia_semana].append(bloque)
+
+        dias = [
+            {
+                "clave": dia,
+                "nombre": nombre,
+                "bloques": bloques_por_dia[dia],
+                "add_url": self.get_add_url(profesor, periodo, dia),
+            }
+            for dia, nombre in Horario._meta.get_field("dia_semana").choices
+        ]
+
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "form": form,
+            "profesor_seleccionado": profesor,
+            "periodo": periodo,
+            "periodos": periodos,
+            "periodo_nuevo_activo": periodo_nuevo_activo,
+            "dias": dias,
+            "dia_seleccionado": dia_seleccionado,
+            "es_administrador_disponibilidad": self.es_administrador(),
+        })
+        if self.es_administrador():
+            context["profesores"] = self.get_profesores()
+        return context
+
+    def get_add_url(self, profesor, periodo, dia):
+        params = {"periodo": periodo or "__nuevo__"}
+        if self.es_administrador():
+            params["profesor_id"] = profesor.pk
+        params["dia"] = dia
+        return (
+            f"{reverse('academico:disponibilidad_docente')}?"
+            f"{urlencode(params)}#availability-add-title"
+        )
+
+    def get_success_url(self, profesor, periodo, dia):
+        return self.get_add_url(profesor, periodo, dia)
+
+    def post(self, request, *args, **kwargs):
+        profesor = self.get_profesor_seleccionado()
+        periodo = self.get_periodo(profesor)
+        accion = request.POST.get("accion")
+
+        if accion == "eliminar":
+            disponibilidad_id = request.POST.get("disponibilidad_id", "")
+            if not disponibilidad_id.isdigit():
+                raise Http404("El bloque de disponibilidad no existe.")
+            disponibilidad = get_object_or_404(
+                ProfesorDisponibilidad,
+                pk=int(disponibilidad_id),
+                profesor=profesor,
+                periodo=periodo,
+            )
+            disponibilidad.delete()
+            messages.success(request, "El bloque de disponibilidad se eliminó.")
+            dia = request.POST.get("dia", "")
+            return redirect(self.get_success_url(profesor, periodo, dia))
+
+        form = ProfesorDisponibilidadForm(
+            request.POST,
+            profesor=profesor,
+        )
+        if form.is_valid():
+            disponibilidad = form.save(commit=False)
+            disponibilidad.profesor = profesor
+            disponibilidad.save()
+            messages.success(request, "La disponibilidad se guardó correctamente.")
+            return redirect(
+                self.get_success_url(
+                    profesor,
+                    disponibilidad.periodo,
+                    disponibilidad.dia_semana,
+                )
+            )
+
+        return self.render_to_response(
+            self.get_context_data(
+                form=form,
+                profesor=profesor,
+                periodo=periodo,
+                dia_seleccionado=request.POST.get("dia_semana", ""),
+            )
+        )

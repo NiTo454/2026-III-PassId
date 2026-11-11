@@ -88,7 +88,7 @@
             </div>
             {% endif %}
 
-            {% if user.is_superuser or perms.carrera.view_carrera or perms.aula.view_aula or perms.materia.view_materia or perms.horario.view_horario or perms.inscripcion.view_inscripcion or perms.horario.view_carga_academica %}
+            {% if user.is_superuser or perms.carrera.view_carrera or perms.aula.view_aula or perms.materia.view_materia or perms.horario.view_horario or perms.inscripcion.view_inscripcion or perms.horario.view_carga_academica or perms.horario.manage_disponibilidad %}
             <div class="nav-dropdown">
                 <button class="nav-link nav-trigger" aria-haspopup="true" aria-expanded="false">
                     <i class="fa-solid fa-graduation-cap"></i>
@@ -125,6 +125,11 @@
                     {% if user.is_superuser or perms.horario.view_carga_academica %}
                     <a href="{% url 'academico:carga_academica' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-calendar-week"></i> Carga Académica
+                    </a>
+                    {% endif %}
+                    {% if user.is_superuser or perms.horario.manage_disponibilidad %}
+                    <a href="{% url 'academico:disponibilidad_docente' %}" class="nav-dropdown-item" role="menuitem">
+                        <i class="fa-solid fa-calendar-check"></i> Mi disponibilidad
                     </a>
                     {% endif %}
                 </div>

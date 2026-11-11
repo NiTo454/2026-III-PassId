@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Disponibilidad docente - PassID{% endblock %}
+
+{% block content %}
+<section class="availability-page">
+    <header class="availability-heading">
+        <div>
+            <p class="availability-eyebrow">ORGANIZACIÓN ACADÉMICA</p>
+            <h1 class="page-title">Disponibilidad horaria</h1>
+            <p class="page-subtitle">
+                Indica cuándo puedes impartir clases y qué horarios no tienes disponibles.
+            </p>
+        </div>
+        <span class="availability-period-badge">
+            {{ periodo|default:"Período sin seleccionar" }}
+        </span>
+    </header>
+
+    <section class="glass-card availability-card" aria-labelledby="availability-filter-title">
+        <div class="availability-section-heading">
+            <div>
+                <p class="availability-eyebrow">VISTA SEMANAL</p>
+                <h2 id="availability-filter-title">Consulta de disponibilidad</h2>
+            </div>
+            <i class="fa-regular fa-calendar availability-icon" aria-hidden="true"></i>
+        </div>
+
+        <form method="get" class="availability-filter">
+            {% if es_administrador_disponibilidad %}
+            <div class="availability-field">
+                <label for="id_profesor_id">Docente</label>
+                <select class="form-select" name="profesor_id" id="id_profesor_id">
+                    {% for profesor in profesores %}
+                    <option value="{{ profesor.pk }}" {% if profesor.pk == profesor_seleccionado.pk %}selected{% endif %}>
+                        {{ profesor.nombre|default:profesor.username }}
+                        {% if profesor.apaterno %}{{ profesor.apaterno }}{% endif %}
+                        {% if profesor.amaterno %}{{ profesor.amaterno }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% else %}
+            <div class="availability-field">
+                <span class="availability-field-label">Docente</span>
+                <p class="availability-current-user">
+                    {{ profesor_seleccionado.nombre|default:profesor_seleccionado.username }}
+                </p>
+            </div>
+            {% endif %}
+            <div class="availability-field">
+                <label for="id_periodo_filtro">Período académico</label>
+                <select
+                    class="form-select"
+                    id="id_periodo_filtro"
+                    name="periodo"
+                >
+                    <option value="" {% if not periodo %}selected{% endif %}>Selecciona un período</option>
+                    {% for periodo_opcion in periodos %}
+                    <option value="{{ periodo_opcion }}" {% if periodo == periodo_opcion %}selected{% endif %}>
+                        {{ periodo_opcion }}
+                    </option>
+                    {% endfor %}
+                    <option value="__nuevo__" {% if periodo_nuevo_activo %}selected{% endif %}>
+                        Crear período nuevo…
+                    </option>
+                </select>
+                <details
+                    class="availability-new-period"
+                    id="availability-new-period"
+                    {% if periodo_nuevo_activo %}open{% endif %}
+                >
+                    <summary>¿No aparece? Crear un período</summary>
+                    <label for="id_nuevo_periodo">Nombre del nuevo período</label>
+                    <input
+                        class="form-control"
+                        id="id_nuevo_periodo"
+                        name="nuevo_periodo"
+                        value="{% if periodo and periodo not in periodos %}{{ periodo }}{% endif %}"
+                        placeholder="Ej. 2026-3"
+                        maxlength="30"
+                    >
+                </details>
+            </div>
+            <button type="submit" class="btn-create availability-filter-button">
+                <i class="fa-solid fa-filter" aria-hidden="true"></i> Consultar
+            </button>
+        </form>
+    </section>
+
+    <section class="glass-card availability-card" aria-labelledby="availability-matrix-title">
+        <div class="availability-section-heading">
+            <div>
+                <p class="availability-eyebrow">LUNES A SÁBADO</p>
+                <h2 id="availability-matrix-title">Matriz semanal</h2>
+            </div>
+            <div class="availability-legend" aria-label="Leyenda">
+                <span><i class="availability-legend-dot is-available"></i> Disponible</span>
+                <span><i class="availability-legend-dot is-unavailable"></i> No disponible</span>
+            </div>
+        </div>
+
+        <div class="availability-grid">
+            {% for dia in dias %}
+            <section class="availability-day" aria-labelledby="day-{{ dia.clave }}">
+                <h3 id="day-{{ dia.clave }}">{{ dia.nombre }}</h3>
+                <a class="availability-day-add" href="{{ dia.add_url }}">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i> Agregar aquí
+                </a>
+                <div class="availability-day-blocks">
+                    {% for bloque in dia.bloques %}
+                    <article class="availability-block {% if bloque.tipo == 'disponible' %}is-available{% else %}is-unavailable{% endif %}">
+                        <div class="availability-block-copy">
+                            <strong>{{ bloque.hora_inicio|time:"H:i" }}–{{ bloque.hora_fin|time:"H:i" }}</strong>
+                            <span>{{ bloque.get_tipo_display }}</span>
+                            {% if bloque.notas %}<small>{{ bloque.notas }}</small>{% endif %}
+                        </div>
+                        <form method="post" class="availability-delete-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="accion" value="eliminar">
+                            <input type="hidden" name="disponibilidad_id" value="{{ bloque.pk }}">
+                            <input type="hidden" name="periodo" value="{{ periodo }}">
+                            <input type="hidden" name="dia" value="{{ dia.clave }}">
+                            {% if es_administrador_disponibilidad %}
+                            <input type="hidden" name="profesor_id" value="{{ profesor_seleccionado.pk }}">
+                            {% endif %}
+                            <button
+                                type="submit"
+                                class="availability-delete"
+                                aria-label="Eliminar bloque de {{ dia.nombre }} de {{ bloque.hora_inicio|time:'H:i' }} a {{ bloque.hora_fin|time:'H:i' }}"
+                                title="Eliminar bloque"
+                            >
+                                <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                            </button>
+                        </form>
+                    </article>
+                    {% empty %}
+                    <p class="availability-day-empty">Sin bloques registrados</p>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="glass-card availability-card" aria-labelledby="availability-add-title">
+        <div class="availability-section-heading">
+            <div>
+                <p class="availability-eyebrow">GESTIONA TUS HORARIOS</p>
+                <h2 id="availability-add-title">
+                    {% if dia_seleccionado %}
+                        Agregar bloque · {{ form.dia_semana.value|default:dia_seleccionado|capfirst }}
+                    {% else %}
+                        Agregar un bloque
+                    {% endif %}
+                </h2>
+            </div>
+            <i class="fa-regular fa-clock availability-icon" aria-hidden="true"></i>
+        </div>
+
+        <form method="post" class="availability-form">
+            {% csrf_token %}
+            {% if es_administrador_disponibilidad %}
+            <input type="hidden" name="profesor_id" value="{{ profesor_seleccionado.pk }}">
+            {% endif %}
+
+            {% if form.non_field_errors %}
+            <div class="availability-errors" role="alert">
+                {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="availability-form-grid">
+                {% for field in form %}
+                    {% if field.is_hidden %}
+                    {{ field }}
+                    {% elif field.name == "notas" %}
+                <details class="availability-notes">
+                    <summary>Agregar una nota (opcional)</summary>
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                    <p class="availability-field-error">{{ error }}</p>
+                    {% endfor %}
+                </details>
+                {% elif field.name == "tipo" %}
+                <fieldset class="availability-field availability-type-field">
+                    <legend>{{ field.label }}</legend>
+                    <div class="availability-type-options">
+                        {% for choice in field %}
+                        <label class="availability-type-card {% if choice.data.value == 'disponible' %}is-available{% else %}is-unavailable{% endif %}">
+                            {{ choice.tag }}
+                            <span class="availability-type-indicator" aria-hidden="true"></span>
+                            <span>{{ choice.choice_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% for error in field.errors %}
+                    <p class="availability-field-error">{{ error }}</p>
+                    {% endfor %}
+                </fieldset>
+                {% else %}
+                <div class="availability-field">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                    <p class="availability-field-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="availability-form-footer">
+                <p>Los bloques no pueden traslaparse dentro del mismo día y período.</p>
+                <button type="submit" class="btn-create">
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i> Guardar bloque
+                </button>
+            </div>
+        </form>
+    </section>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'js/disponibilidad-docente.js' %}" defer></script>
+{% endblock %}

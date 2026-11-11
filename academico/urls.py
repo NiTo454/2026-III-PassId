@@ -7,7 +7,7 @@ from .views import (
     InscripcionListView, InscripcionCreateView, InscripcionUpdateView, 
     InscripcionDeleteView, InscripcionDetailView, CarreraDetailView, 
     AulaDetailView, MateriaDetailView, HorarioDetailView, ProgresoAsistenciaView,
-    CargaAcademicaView
+    CargaAcademicaView, DisponibilidadDocenteView,
 )
 
 app_name = "academico"
@@ -51,4 +51,9 @@ urlpatterns = [
 
      path("carga-academica/",CargaAcademicaView.as_view(), name="carga_academica",
     ),
+     path(
+         "disponibilidad-docente/",
+         DisponibilidadDocenteView.as_view(),
+         name="disponibilidad_docente",
+     ),
 ]
