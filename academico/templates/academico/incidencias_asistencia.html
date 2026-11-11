@@ -10,7 +10,7 @@
     </div>
 </section>
 
-<div class="glass-card" style="overflow-x: auto;">
+<div class="glass-card table-responsive">
     <table class="table">
         <thead>
             <tr>
@@ -39,7 +39,7 @@
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No hay solicitudes pendientes.</td></tr>
+            <tr><td colspan="6" class="table-empty">No hay solicitudes pendientes.</td></tr>
             {% endfor %}
         </tbody>
     </table>
