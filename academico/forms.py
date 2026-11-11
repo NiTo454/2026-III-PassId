@@ -1,5 +1,13 @@
 from django import forms
-from .models import Carrera, Aula, Materia, Horario, Inscripcion
+from .models import (
+    Aula,
+    Carrera,
+    DiaSemanaChoices,
+    Horario,
+    Inscripcion,
+    Materia,
+    ProfesorDisponibilidad,
+)
 
 class CarreraForm(forms.ModelForm):
     class Meta:
@@ -68,3 +76,73 @@ class InscripcionForm(forms.ModelForm):
             "periodo": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej. 2026-3"}),
             "activa": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+
+class ProfesorDisponibilidadForm(forms.ModelForm):
+    dia_semana = forms.ChoiceField(
+        choices=DiaSemanaChoices.choices,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="Día de la semana",
+    )
+
+    class Meta:
+        model = ProfesorDisponibilidad
+        fields = ["dia_semana", "hora_inicio", "hora_fin", "periodo", "tipo", "notas"]
+        labels = {
+            "hora_inicio": "Hora de inicio",
+            "hora_fin": "Hora de fin",
+            "periodo": "Período académico",
+            "tipo": "Disponibilidad",
+            "notas": "Notas",
+        }
+        widgets = {
+            "hora_inicio": forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
+            "hora_fin": forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
+            "periodo": forms.HiddenInput(),
+            "tipo": forms.RadioSelect(attrs={"class": "availability-type-option"}),
+            "notas": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Opcional: observaciones",
+                    "maxlength": 200,
+                }
+            ),
+        }
+
+    def __init__(self, *args, profesor, **kwargs):
+        self.profesor = profesor
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        inicio = cleaned_data.get("hora_inicio")
+        fin = cleaned_data.get("hora_fin")
+        dia = cleaned_data.get("dia_semana")
+        periodo = cleaned_data.get("periodo")
+
+        if inicio and fin and inicio >= fin:
+            self.add_error("hora_fin", "La hora final debe ser posterior a la inicial.")
+            return cleaned_data
+
+        if inicio and fin and dia and periodo:
+            traslapes = ProfesorDisponibilidad.objects.filter(
+                profesor=self.profesor,
+                dia_semana=dia,
+                periodo=periodo,
+                hora_inicio__lt=fin,
+                hora_fin__gt=inicio,
+            )
+            if self.instance.pk:
+                traslapes = traslapes.exclude(pk=self.instance.pk)
+            traslape = traslapes.order_by("hora_inicio").first()
+            if traslape:
+                dia_nombre = dict(DiaSemanaChoices.choices)[dia]
+                self.add_error(
+                    None,
+                    (
+                        f"Este horario se cruza con el bloque del {dia_nombre} "
+                        f"de {traslape.hora_inicio:%H:%M} a {traslape.hora_fin:%H:%M}."
+                    ),
+                )
+
+        return cleaned_data
