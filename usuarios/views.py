@@ -19,6 +19,7 @@ from django.views import View
 from django.views.generic import FormView, ListView, CreateView, UpdateView, DeleteView
 
 from core.mixins import PassIdPermissionMixin
+from autenticacion.context import AUTH_TEMPLATE, build_auth_context
 from .forms import (
     MiPerfilForm,
     PasswordResetRequestForm,
@@ -35,7 +36,7 @@ from .models import PasswordReset, Permiso, Perfil, Usuario
 
 class PasswordResetRequestView(FormView):
     form_class = PasswordResetRequestForm
-    template_name = "common/form_base.html"
+    template_name = AUTH_TEMPLATE
     success_url = reverse_lazy("usuarios:password_reset_done")
     rate_limit = 5
     rate_limit_seconds = 900
@@ -54,6 +55,7 @@ class PasswordResetRequestView(FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context.update(build_auth_context(self.request, "reset", context["form"]))
         context.update({
             "title": "Recuperar contraseña",
             "subtitle": (
@@ -120,7 +122,7 @@ class PasswordResetDoneView(View):
 
 
 class PasswordResetConfirmView(View):
-    template_name = "common/form_base.html"
+    template_name = "usuarios/password_reset_confirm.html"
 
     def render_sensitive(self, request, template_name, context=None, status=200):
         response = render(request, template_name, context, status=status)
