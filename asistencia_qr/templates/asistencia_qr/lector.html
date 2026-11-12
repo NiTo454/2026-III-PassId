@@ -4,282 +4,148 @@
 {% block title %}Lector de asistencia - PassID{% endblock %}
 
 {% block content %}
-<section class="glass-card" style="max-width: 760px; margin: 0 auto;">
-    <h1 class="form-title">Registrar asistencia con QR</h1>
-    <p style="color: var(--text-muted); margin: 0.75rem 0 1.5rem;">
-        Selecciona uno de tus horarios activos y escanea el QR del estudiante.
-    </p>
+<section
+    class="unified-scanner"
+    id="unified-scanner"
+    data-initial-mode="{{ scanner_mode }}"
+    data-class-submit-url="{{ class_submit_url }}"
+    data-event-submit-url="{{ event_submit_url }}"
+    data-event-info-template="{% url 'eventos:info_evento' pk=0 %}"
+    data-event-qr-template="{% url 'eventos:qr_registro_evento' pk=0 %}"
+    aria-labelledby="scanner-title"
+>
+    {% csrf_token %}
+    <header class="scanner-heading">
+        <div>
+            <p class="scanner-eyebrow">REGISTRO DE ASISTENCIA</p>
+            <h1 class="page-title" id="scanner-title">Lector QR</h1>
+            <p class="page-subtitle">Selecciona qué vas a registrar. Cada lectura se guarda solo en el contexto elegido.</p>
+        </div>
+        <a class="scanner-back-link" href="{% url 'home' %}">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+            Volver al inicio
+        </a>
+    </header>
 
-    <form id="attendance-form" method="post" action="{% url 'asistencia_qr:registrar' %}">
-        {% csrf_token %}
-        <div class="form-group">
-            <label class="form-label" for="{{ form.horario.id_for_label }}">{{ form.horario.label }}</label>
-            {{ form.horario }}
-        </div>
-        {{ form.token }}
-        {{ form.inscribir }}
-        <div class="form-group">
-            <label class="form-label" for="{{ form.matricula.id_for_label }}">{{ form.matricula.label }}</label>
-            {{ form.matricula }}
-        </div>
-        <div class="btn-group qr-action-group">
-            <button id="start-camera" class="btn-submit" type="button">Activar cámara</button>
-            <button id="submit-matricula" class="btn-submit" type="button">Registrar matrícula</button>
-            <button id="enroll-student" class="btn-submit" type="button" hidden>Inscribir alumno y registrar asistencia</button>
-        </div>
-    </form>
+    <div class="scanner-layout">
+        <section class="scanner-panel" aria-label="Controles del lector">
+            {% if can_scan_classes and can_scan_events %}
+            <div class="scanner-mode-switch" role="group" aria-label="Tipo de asistencia">
+                <button class="scanner-mode-button" type="button" data-mode-button="clase" aria-pressed="false">
+                    <i class="fa-solid fa-book-open" aria-hidden="true"></i>
+                    <span>Clase</span>
+                </button>
+                <button class="scanner-mode-button" type="button" data-mode-button="evento" aria-pressed="false">
+                    <i class="fa-solid fa-calendar-check" aria-hidden="true"></i>
+                    <span>Evento</span>
+                </button>
+            </div>
+            {% else %}
+            <div class="scanner-mode-single">
+                <i class="fa-solid {% if can_scan_events %}fa-calendar-check{% else %}fa-book-open{% endif %}" aria-hidden="true"></i>
+                <span>{% if can_scan_events %}Registro de eventos{% else %}Asistencia de clase{% endif %}</span>
+            </div>
+            {% endif %}
 
-    <div id="qr-reader" style="display: none; max-width: 500px; margin: 1.5rem auto;"></div>
-    <div id="scan-result" role="status" aria-live="polite" style="margin-top: 1rem;"></div>
+            {% if can_scan_classes %}
+            <div class="scanner-context" data-context="clase" {% if scanner_mode != "clase" %}hidden{% endif %}>
+                <label for="scanner-class-select">Clase y horario</label>
+                <select id="scanner-class-select" class="scanner-select">
+                    <option value="" selected>
+                        {% if class_form.fields.horario.queryset %}Selecciona una clase y horario{% else %}No hay horarios disponibles{% endif %}
+                    </option>
+                    {% for option in class_form.fields.horario.queryset %}
+                    <option value="{{ option.pk }}">{{ option }}</option>
+                    {% endfor %}
+                </select>
+                <p class="scanner-help">Confirma el horario antes de iniciar; las lecturas no se mezclan con eventos.</p>
+            </div>
+            {% endif %}
+
+            {% if can_scan_events %}
+            <div class="scanner-context" data-context="evento" {% if scanner_mode != "evento" %}hidden{% endif %}>
+                <label for="scanner-event-select">Evento</label>
+                {{ event_form.evento }}
+                <p class="scanner-help">Las lecturas se registrarán únicamente en el evento seleccionado.</p>
+                <label class="scanner-checkbox">
+                    <input type="checkbox" id="scanner-register-at-door">
+                    <span>Permitir registro en puerta si la persona no está inscrita</span>
+                </label>
+                <div class="scanner-event-tools" id="scanner-event-tools" hidden>
+                    <button class="scanner-link-button" type="button" id="scanner-event-info">
+                        <i class="fa-solid fa-circle-info" aria-hidden="true"></i> Ver información del evento
+                    </button>
+                    <a class="scanner-link-button" id="scanner-event-qr-link" href="#" target="_blank" rel="noopener" hidden>
+                        <i class="fa-solid fa-ticket" aria-hidden="true"></i> Abrir QR de registro
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="scanner-action-row">
+                <button class="scanner-primary-button" type="button" id="scanner-start" disabled>
+                    <i class="fa-solid fa-camera" aria-hidden="true"></i>
+                    <span>Iniciar cámara</span>
+                </button>
+                <button class="scanner-secondary-button" type="button" id="scanner-stop" hidden>
+                    <i class="fa-solid fa-stop" aria-hidden="true"></i>
+                    Detener
+                </button>
+            </div>
+
+            <div class="scanner-manual">
+                <label for="scanner-manual-input">¿No puedes escanear? Captura la matrícula o usuario</label>
+                <div class="scanner-manual-row">
+                    <input id="scanner-manual-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ej. 20260001">
+                    <button class="scanner-secondary-button" id="scanner-manual-submit" type="button">Registrar</button>
+                </div>
+            </div>
+
+            <div class="scanner-reader-frame">
+                <div id="qr-reader" aria-label="Vista de la cámara"></div>
+                <div class="scanner-camera-placeholder" id="scanner-camera-placeholder">
+                    <span class="scanner-camera-icon"><i class="fa-solid fa-camera" aria-hidden="true"></i></span>
+                    <strong>La cámara está detenida</strong>
+                    <span>Selecciona un contexto y pulsa “Iniciar cámara”.</span>
+                </div>
+            </div>
+
+            <div class="scanner-status scanner-status-idle" id="scanner-status" role="status" aria-live="polite">
+                <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                <span>Selecciona una clase o evento para continuar.</span>
+            </div>
+
+            <div class="scanner-enrollment-action" id="scanner-enrollment-action" hidden>
+                <p id="scanner-enrollment-message"></p>
+                <button class="scanner-secondary-button" type="button" id="scanner-enroll-confirm">
+                    Confirmar inscripción y registrar asistencia
+                </button>
+            </div>
+
+        </section>
+
+        <aside class="scanner-activity" aria-label="Actividad de esta sesión">
+            <div class="scanner-activity-header">
+                <div>
+                    <p class="scanner-eyebrow">SESIÓN ACTUAL</p>
+                    <h2>Actividad</h2>
+                </div>
+                <span class="scanner-counter" id="scanner-counter" aria-label="Lecturas registradas">0</span>
+            </div>
+            <p class="scanner-activity-context" id="scanner-activity-context">Elige un contexto para ver su actividad.</p>
+            <ol class="scanner-history" id="scanner-history" aria-live="polite">
+                <li class="scanner-history-empty" id="scanner-history-empty">Aquí aparecerá cada resultado de esta sesión.</li>
+            </ol>
+            <p class="scanner-activity-note">
+                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                Un código repetido o inválido se informa sin registrar una segunda asistencia.
+            </p>
+        </aside>
+    </div>
 </section>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'vendor/html5-qrcode/html5-qrcode.min.js' %}"></script>
-<script>
-(() => {
-    const form = document.getElementById("attendance-form");
-    const horarioInput = document.getElementById("id_horario");
-    const tokenInput = document.getElementById("id_token");
-    const enrollInput = document.getElementById("id_inscribir");
-    const matriculaInput = document.getElementById("id_matricula");
-    const result = document.getElementById("scan-result");
-    const cameraButton = document.getElementById("start-camera");
-    const matriculaButton = document.getElementById("submit-matricula");
-    const enrollButton = document.getElementById("enroll-student");
-    let submitting = false;
-    let lastScannedToken = "";
-    let lastScannedAt = 0;
-    let qrReader = null;
-    let pendingEnrollment = null;
-    let scanDetected = false;
-
-    const showResult = (message, ok) => {
-        result.textContent = message;
-        result.className = ok ? "alert alert-success" : "alert alert-error";
-    };
-
-    const hasHorarios = horarioInput.options.length > 1;
-    const ensureHorarioSelected = () => {
-        if (horarioInput.value) return true;
-        showResult(
-            hasHorarios
-                ? "Selecciona una clase antes de escanear el QR."
-                : "No tienes horarios activos asignados para pasar asistencia. Pide al administrador que revise tus horarios.",
-            false
-        );
-        horarioInput.focus();
-        return false;
-    };
-
-    if (!hasHorarios) {
-        matriculaButton.disabled = true;
-        showResult(
-            "No hay horarios activos disponibles. Puedes abrir la cámara, pero necesitas un horario activo para registrar la asistencia.",
-            false
-        );
-    }
-
-    const clearEnrollmentAction = () => {
-        pendingEnrollment = null;
-        enrollButton.hidden = true;
-        enrollInput.value = "";
-    };
-
-    const submitAttendance = async (formData) => {
-        if (submitting) return;
-        if (!ensureHorarioSelected()) return;
-        submitting = true;
-        enrollButton.disabled = true;
-        let requestController = null;
-        let requestTimeout = null;
-        try {
-            if (typeof AbortController !== "undefined") {
-                requestController = new AbortController();
-            }
-            showResult("QR detectado. Enviando al servidor para validar alumno e inscripción...", true);
-            console.info("Enviando QR al servidor de asistencia.", {
-                endpoint: form.action,
-                horario: horarioInput.value,
-            });
-            const fetchOptions = {
-                method: "POST",
-                body: formData,
-                headers: { "X-Requested-With": "XMLHttpRequest" },
-            };
-            if (requestController) {
-                fetchOptions.signal = requestController.signal;
-            }
-            const request = fetch(form.action, fetchOptions);
-            const timeout = new Promise((resolve, reject) => {
-                requestTimeout = window.setTimeout(() => {
-                    if (requestController) requestController.abort();
-                    const error = new Error("La validación del QR excedió el tiempo de espera.");
-                    error.name = "TimeoutError";
-                    reject(error);
-                }, 15000);
-            });
-            const response = await Promise.race([request, timeout]);
-            const responseBody = await response.text();
-            let responseData;
-            try {
-                responseData = JSON.parse(responseBody);
-            } catch (error) {
-                console.error("Respuesta no JSON al validar QR.", {
-                    status: response.status,
-                    body: responseBody.slice(0, 500),
-                });
-                showResult(
-                    `El servidor respondió HTTP ${response.status} con una página en vez de JSON. Revisa permisos, sesión y configuración CSRF.`,
-                    false
-                );
-                return;
-            }
-            if (!response.ok) {
-                console.error("El servidor rechazó la validación del QR.", {
-                    status: response.status,
-                    response: responseData,
-                });
-            }
-            showResult(responseData.message || "No se pudo validar el QR.", response.ok && responseData.ok);
-            if (responseData.enrollment_required && responseData.can_enroll) {
-                pendingEnrollment = formData;
-                enrollButton.textContent = responseData.status === "inscripcion_inactiva"
-                    ? "Reactivar inscripción y registrar asistencia"
-                    : "Inscribir alumno y registrar asistencia";
-                enrollButton.hidden = false;
-            } else {
-                clearEnrollmentAction();
-            }
-            if (response.ok) {
-                tokenInput.value = "";
-                matriculaInput.value = "";
-            }
-        } catch (error) {
-            console.error("Falló la petición para validar el QR.", error);
-            showResult(
-                error.name === "AbortError" || error.name === "TimeoutError"
-                    ? "El servidor no respondió en 15 segundos. El QR sí se leyó, pero la petición de validación quedó pendiente; revisa Django y el túnel ngrok."
-                    : "No se pudo contactar al servidor para validar el QR. Revisa la conexión y el túnel ngrok.",
-                false
-            );
-        } finally {
-            if (requestTimeout !== null) {
-                window.clearTimeout(requestTimeout);
-            }
-            submitting = false;
-            enrollButton.disabled = false;
-        }
-    };
-
-    const submitToken = (token) => {
-        clearEnrollmentAction();
-        const data = new FormData(form);
-        data.set("token", token);
-        data.set("matricula", "");
-        return submitAttendance(data);
-    };
-
-    const submitMatricula = async () => {
-        const matricula = matriculaInput.value.trim();
-        if (!matricula) {
-            showResult("Captura la matrícula del estudiante.", false);
-            return;
-        }
-        clearEnrollmentAction();
-        try {
-            const data = new FormData(form);
-            data.set("token", "");
-            data.set("matricula", matricula);
-            await submitAttendance(data);
-        } catch (error) {
-            console.error("No se pudo preparar la matrícula para validación.", error);
-            showResult("No se pudo enviar la matrícula. Recarga el lector e inténtalo de nuevo.", false);
-        }
-    };
-
-    enrollButton.addEventListener("click", () => {
-        if (!pendingEnrollment || submitting) return;
-        const data = new FormData(form);
-        data.set("token", pendingEnrollment.get("token") || "");
-        data.set("matricula", pendingEnrollment.get("matricula") || "");
-        data.set("inscribir", "on");
-        submitAttendance(data);
-    });
-
-    form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        if (!tokenInput.value.trim()) {
-            showResult("Escanea un QR o usa la captura manual de matrícula.", false);
-        }
-    });
-    matriculaButton.addEventListener("click", submitMatricula);
-
-    cameraButton.addEventListener("click", async () => {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            showResult("Este navegador no permite acceder a la cámara. Usa la captura manual.", false);
-            return;
-        }
-        if (typeof Html5Qrcode === "undefined") {
-            showResult("No se cargó el lector QR local. Recarga la página o captura la matrícula manualmente.", false);
-            return;
-        }
-        try {
-            qrReader = new Html5Qrcode("qr-reader");
-            document.getElementById("qr-reader").style.display = "block";
-            cameraButton.disabled = true;
-            scanDetected = false;
-            showResult("Iniciando cámara y lector QR...", true);
-            await qrReader.start(
-                { facingMode: "environment" },
-                {
-                    fps: 15,
-                    qrbox: (viewfinderWidth, viewfinderHeight) => {
-                        const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.85);
-                        return { width: edge, height: edge };
-                    },
-                    disableFlip: false,
-                },
-                async (decodedText) => {
-                    try {
-                        const now = Date.now();
-                        if (!submitting && (decodedText !== lastScannedToken || now - lastScannedAt > 5000)) {
-                            scanDetected = true;
-                            lastScannedToken = decodedText;
-                            lastScannedAt = now;
-                            showResult("QR detectado. Validando alumno e inscripción...", true);
-                            await submitToken(decodedText);
-                        }
-                    } catch (error) {
-                        console.error("No se pudo procesar el QR detectado.", error);
-                        showResult("Se detectó el QR, pero no se pudo preparar para enviarlo. Recarga el lector.", false);
-                    }
-                },
-                () => {}
-            );
-            if (!scanDetected) {
-                showResult("Cámara activa. Coloca el QR completo dentro del recuadro.", true);
-            }
-        } catch (error) {
-            console.error("No se pudo iniciar el lector QR.", error);
-            document.getElementById("qr-reader").style.display = "none";
-            cameraButton.disabled = false;
-            const reason = error.name === "NotAllowedError"
-                ? "Permite el acceso a la cámara en el navegador."
-                : error.name === "NotFoundError"
-                    ? "No se encontró una cámara disponible."
-                    : "Verifica los permisos y que el sitio use HTTPS o localhost.";
-            showResult(`No se pudo iniciar la cámara. ${reason} También puedes capturar la matrícula.`, false);
-        }
-    });
-
-    window.addEventListener("pagehide", () => {
-        if (qrReader) {
-            qrReader.stop().catch((error) => {
-                console.error("No se pudo detener el lector QR.", error);
-            });
-        }
-    });
-})();
-</script>
+<script src="{% static 'js/unified-scanner.js' %}"></script>
 {% endblock %}

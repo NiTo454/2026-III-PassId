@@ -7,6 +7,9 @@ from django.utils import timezone
 from django.http import JsonResponse
 from django.core import signing
 import json
+from urllib.parse import urlencode
+from django.urls import reverse
+from django.views.generic import RedirectView
 from core.mixins import PassIdPermissionMixin
 from usuarios.models import Usuario
 from .models import Evento, Registro, Asistencia
@@ -349,25 +352,15 @@ class AutoregistroCancelarView(PassIdPermissionMixin, View):
         return redirect("eventos:eventos_disponibles")
 
 
-class EscanearAsistenciaEventoView(PassIdPermissionMixin, TemplateView):
-    template_name = "eventos/lector.html"
+class EscanearAsistenciaEventoView(PassIdPermissionMixin, RedirectView):
     required_permission = "asistencia.add_asistencia"
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    def get_redirect_url(self, *args, **kwargs):
+        params = {"mode": "evento"}
         evento_id = self.request.GET.get("evento")
-        evento_preseleccionado = None
-        if evento_id and str(evento_id).isdigit():
-            evento_preseleccionado = Evento.objects.filter(pk=evento_id).first()
-
-        context["form"] = EscaneoAsistenciaEventoForm(
-            user=self.request.user,
-            initial_evento_id=evento_preseleccionado.pk if evento_preseleccionado else None
-        )
-        context["evento_preseleccionado"] = evento_preseleccionado
-        context["page_title"] = "Escáner QR de Eventos - Staff (Cadenero)"
-        context["page_subtitle"] = "Validación de pre-registro y pase de lista en puerta"
-        return context
+        if evento_id and evento_id.isdigit():
+            params["evento"] = evento_id
+        return f"{reverse('asistencia_qr:lector')}?{urlencode(params)}"
 
 
 class InfoEventoApiView(PassIdPermissionMixin, View):
@@ -382,6 +375,7 @@ class InfoEventoApiView(PassIdPermissionMixin, View):
             "fecha_hora": timezone.localtime(evento.fecha_hora).strftime("%d/%m/%Y %H:%M"),
             "lugar": evento.lugar or "Sin lugar asignado",
             "requiere_registro": bool(evento.requiere_registro),
+            "permitir_autorregistro": bool(evento.permitir_autorregistro),
             "total_registrados": evento.registros.count(),
             "total_asistencias": evento.asistencias.count(),
         })

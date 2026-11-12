@@ -46,7 +46,7 @@ class EscaneoAsistenciaEventoForm(forms.Form):
         queryset=Evento.objects.none(),
         label="Evento a gestionar",
         empty_label="Selecciona un evento",
-        widget=forms.Select(attrs={"class": "form-control", "id": "id_evento"}),
+        widget=forms.Select(attrs={"class": "form-control scanner-select", "id": "id_evento"}),
     )
     token = forms.CharField(
         max_length=500,

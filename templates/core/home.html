@@ -67,71 +67,80 @@
             </article>
         </section>
 
-        <section class="glass-card dashboard-card" aria-labelledby="summary-title">
+        <section class="glass-card dashboard-card dashboard-summary-card" aria-labelledby="summary-title">
             <div class="dashboard-section-heading">
                 <div>
-                    <p class="dashboard-eyebrow">RESUMEN</p>
+                    <p class="dashboard-eyebrow">EN UN VISTAZO</p>
                     <h2 class="dashboard-card-title" id="summary-title">Tu actividad</h2>
                 </div>
+                <span class="dashboard-section-mark" aria-hidden="true">
+                    <i class="fa-solid fa-chart-line"></i>
+                </span>
             </div>
 
             <dl class="dashboard-stat-grid">
-                <div class="dashboard-stat">
-                    <dt><i class="fa-solid fa-book" aria-hidden="true"></i> Materias inscritas</dt>
+                <div class="dashboard-stat dashboard-stat-subjects">
+                    <dt><span class="dashboard-stat-icon"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span> Materias inscritas</dt>
                     <dd>{{ estadisticas.materias }}</dd>
                     <span>inscripciones activas</span>
                 </div>
-                <div class="dashboard-stat">
-                    <dt><i class="fa-solid fa-clock" aria-hidden="true"></i> Carga semanal</dt>
+                <div class="dashboard-stat dashboard-stat-hours">
+                    <dt><span class="dashboard-stat-icon"><i class="fa-regular fa-clock" aria-hidden="true"></i></span> Carga semanal</dt>
                     <dd>{{ estadisticas.horas_sem }} <small>h</small></dd>
                     <span>horas de clase</span>
                 </div>
-                <div class="dashboard-stat">
-                    <dt><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> Eventos</dt>
+                <div class="dashboard-stat dashboard-stat-events">
+                    <dt><span class="dashboard-stat-icon"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i></span> Eventos</dt>
                     <dd>{{ estadisticas.eventos }}</dd>
                     <span>registrados</span>
                 </div>
-                <div class="dashboard-stat">
-                    <dt><i class="fa-solid fa-user-check" aria-hidden="true"></i> Asistencias</dt>
+                <div class="dashboard-stat dashboard-stat-attendance">
+                    <dt><span class="dashboard-stat-icon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span> Asistencias</dt>
                     <dd>{{ estadisticas.asistencias_evt }}</dd>
                     <span>eventos confirmados</span>
                 </div>
             </dl>
-            <p class="dashboard-footnote">
+            <p class="dashboard-footnote dashboard-summary-note">
+                <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
                 Has asistido a {{ estadisticas.asistencias_evt }} de {{ estadisticas.eventos }} eventos registrados.
             </p>
         </section>
     </div>
 
     <div class="dashboard-layout dashboard-layout-secondary">
-        <section class="glass-card dashboard-card" aria-labelledby="next-class-title">
+        <section class="glass-card dashboard-card dashboard-today-card" aria-labelledby="next-class-title">
             <div class="dashboard-section-heading">
                 <div>
-                    <p class="dashboard-eyebrow">HOY</p>
-                    <h2 class="dashboard-card-title" id="next-class-title">Siguiente clase</h2>
+                    <p class="dashboard-eyebrow">TU DÍA ACADÉMICO</p>
+                    <h2 class="dashboard-card-title" id="next-class-title">Resumen de hoy</h2>
                 </div>
-                <i class="fa-solid fa-graduation-cap dashboard-heading-icon" aria-hidden="true"></i>
+                <span class="dashboard-section-mark dashboard-section-mark-today" aria-hidden="true">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </span>
             </div>
 
             {% if siguiente_clase %}
             <div class="dashboard-highlight">
                 <div class="dashboard-class-time">
-                    <span>{% if clase_en_curso %}En curso{% else %}Inicio{% endif %}</span>
+                    <span>{% if clase_en_curso %}En curso{% else %}Siguiente{% endif %}</span>
                     <strong>{{ siguiente_clase.hora_inicio|time:"H:i" }}</strong>
                 </div>
-                <div>
+                <div class="dashboard-class-details">
+                    <span class="dashboard-class-label">
+                        <i class="fa-solid fa-circle" aria-hidden="true"></i>
+                        {% if clase_en_curso %}Clase en curso{% else %}Lo que sigue{% endif %}
+                    </span>
                     <h3>{{ siguiente_clase.materia.nombre }}</h3>
-                    <p>
-                        {{ siguiente_clase.hora_inicio|time:"H:i" }}–{{ siguiente_clase.hora_fin|time:"H:i" }}
-                        <span aria-hidden="true">·</span>
-                        {% if siguiente_clase.aula %}{{ siguiente_clase.aula.codigo }}{% else %}Aula por asignar{% endif %}
+                    <p class="dashboard-class-meta">
+                        <span><i class="fa-regular fa-clock" aria-hidden="true"></i>{{ siguiente_clase.hora_inicio|time:"H:i" }}–{{ siguiente_clase.hora_fin|time:"H:i" }}</span>
+                        <span><i class="fa-solid fa-location-dot" aria-hidden="true"></i>{% if siguiente_clase.aula %}{{ siguiente_clase.aula.codigo }}{% else %}Aula por asignar{% endif %}</span>
                     </p>
-                    <p>Grupo {{ siguiente_clase.grupo }} · {{ siguiente_clase.periodo }}</p>
+                    <p class="dashboard-class-group">Grupo {{ siguiente_clase.grupo }} <span aria-hidden="true">·</span> {{ siguiente_clase.periodo }}</p>
                 </div>
             </div>
             {% else %}
             <div class="dashboard-empty-state">
-                <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+                <span class="dashboard-empty-icon"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i></span>
                 <p>
                     {% if hay_clases_hoy %}
                     Ya no tienes clases pendientes para hoy.
@@ -163,20 +172,31 @@
         <section class="glass-card dashboard-card dashboard-event-card" aria-labelledby="next-event-title">
             <div class="dashboard-section-heading">
                 <div>
-                    <p class="dashboard-eyebrow">AGENDA</p>
-                    <h2 class="dashboard-card-title" id="next-event-title">Próximo evento</h2>
+                    <p class="dashboard-eyebrow">NO TE LO PIERDAS</p>
+                    <h2 class="dashboard-card-title" id="next-event-title">Agenda</h2>
                 </div>
-                <i class="fa-regular fa-calendar-check dashboard-heading-icon" aria-hidden="true"></i>
+                <span class="dashboard-section-mark dashboard-section-mark-agenda" aria-hidden="true">
+                    <i class="fa-regular fa-calendar-check"></i>
+                </span>
             </div>
 
             {% if evento_proximo %}
-            <div class="dashboard-event-content">
-                <h3>{{ evento_proximo.nombre }}</h3>
-                <p><i class="fa-regular fa-clock" aria-hidden="true"></i> {{ evento_proximo.fecha_hora|date:"d/m/Y · H:i" }}</p>
-                <p><i class="fa-solid fa-location-dot" aria-hidden="true"></i> {{ evento_proximo.lugar|default:"Lugar por confirmar" }}</p>
+            <div class="dashboard-event-content dashboard-event-feature">
+                <div class="dashboard-event-date" aria-label="{{ evento_proximo.fecha_hora|date:'d F Y' }}">
+                    <span>{{ evento_proximo.fecha_hora|date:"M" }}</span>
+                    <strong>{{ evento_proximo.fecha_hora|date:"d" }}</strong>
+                    <small>{{ evento_proximo.fecha_hora|date:"Y" }}</small>
+                </div>
+                <div class="dashboard-event-details">
+                    <span class="dashboard-event-label"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> Próximamente</span>
+                    <h3>{{ evento_proximo.nombre }}</h3>
+                    <p><i class="fa-regular fa-clock" aria-hidden="true"></i> {{ evento_proximo.fecha_hora|date:"l · H:i" }}</p>
+                    <p><i class="fa-solid fa-location-dot" aria-hidden="true"></i> {{ evento_proximo.lugar|default:"Lugar por confirmar" }}</p>
+                </div>
             </div>
             {% else %}
             <div class="dashboard-empty-state">
+                <span class="dashboard-empty-icon"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>
                 <p>No hay eventos futuros programados.</p>
             </div>
             {% endif %}

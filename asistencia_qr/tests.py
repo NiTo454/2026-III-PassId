@@ -133,14 +133,13 @@ class QrAttendanceTests(TestCase):
         self.assertNotContains(response, 'id="student-qr"')
         self.assertNotContains(response, "/static/js/qr-refresh.js")
 
-    def test_scanner_renders_hidden_enrollment_field_used_by_reader_script(self):
+    def test_scanner_renders_confirmation_action_for_enrollment(self):
         self.client.force_login(self.teacher)
 
         response = self.client.get(reverse("asistencia_qr:lector"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'name="inscribir"')
-        self.assertContains(response, 'id="id_inscribir"')
+        self.assertContains(response, 'id="scanner-enroll-confirm"')
 
     def test_qr_image_contains_a_token_signed_for_the_student_matricula(self):
         encoded_image = base64.b64encode(b"test-image").decode("ascii")

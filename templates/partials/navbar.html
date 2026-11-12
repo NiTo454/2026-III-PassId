@@ -12,7 +12,7 @@
 
         <div class="nav-links" id="navLinks">
 
-            {% if user.is_superuser or perms.asistencia_qr %}
+            {% if user.is_superuser or perms.asistencia_qr.ver_mi_qr or perms.asistencia_qr.escanear_asistencia or perms.asistencia_qr.ver_asistencias or perms.asistencia.add_asistencia %}
             <div class="nav-dropdown">
                 <button class="nav-link nav-trigger" aria-haspopup="true" aria-expanded="false">
                     <i class="fa-solid fa-qrcode"></i>
@@ -25,9 +25,9 @@
                         <i class="fa-solid fa-id-card"></i> Mi QR
                     </a>
                     {% endif %}
-                    {% if user.is_superuser or perms.asistencia_qr.escanear_asistencia %}
+                    {% if user.is_superuser or perms.asistencia_qr.escanear_asistencia or perms.asistencia.add_asistencia %}
                     <a href="{% url 'asistencia_qr:lector' %}" class="nav-dropdown-item" role="menuitem">
-                        <i class="fa-solid fa-camera"></i> Leer asistencia
+                        <i class="fa-solid fa-camera"></i> Lector de asistencia
                     </a>
                     {% endif %}
                     {% if user.is_superuser or perms.asistencia_qr.ver_asistencias %}
@@ -136,7 +136,7 @@
             </div>
             {% endif %}
 
-            {% if user.is_superuser or perms.evento.view_evento or perms.registro.view_registro or perms.asistencia.view_asistencia or perms.asistencia.add_asistencia %}
+            {% if user.is_superuser or perms.evento.view_evento or perms.registro.view_registro or perms.asistencia.view_asistencia %}
             <div class="nav-dropdown">
                 <button class="nav-link nav-trigger" aria-haspopup="true" aria-expanded="false">
                     <i class="fa-solid fa-calendar-check"></i>
@@ -157,11 +157,6 @@
                     {% if user.is_superuser or perms.asistencia.view_asistencia %}
                     <a href="{% url 'eventos:asistencia_list' %}" class="nav-dropdown-item" role="menuitem">
                         <i class="fa-solid fa-list-check"></i> Asistencias
-                    </a>
-                    {% endif %}
-                    {% if user.is_superuser or perms.asistencia.add_asistencia %}
-                    <a href="{% url 'eventos:lector' %}" class="nav-dropdown-item" role="menuitem">
-                        <i class="fa-solid fa-qrcode"></i> Lector QR Staff
                     </a>
                     {% endif %}
                 </div>

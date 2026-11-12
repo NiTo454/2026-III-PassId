@@ -97,19 +97,34 @@ class EventosScannerTests(TestCase):
 
         # Staff con permiso -> 200 OK
         self.client.force_login(self.staff_user)
-        response = self.client.get(reverse("eventos:lector"))
+        response = self.client.get(reverse("eventos:lector"), follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Lector QR de Eventos")
+        self.assertEqual(response.redirect_chain[0][1], 302)
+        self.assertIn(reverse("asistencia_qr:lector"), response.redirect_chain[0][0])
+        self.assertContains(response, "Lector QR")
+        self.assertEqual(response.context["scanner_mode"], "evento")
+
+    def test_unified_lector_is_available_to_event_staff_without_class_permission(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(reverse("asistencia_qr:lector"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["can_scan_classes"])
+        self.assertTrue(response.context["can_scan_events"])
+        self.assertEqual(response.context["scanner_mode"], "evento")
 
     def test_lector_view_preselects_event(self):
         self.client.force_login(self.staff_user)
         response = self.client.get(
-            reverse("eventos:lector") + f"?evento={self.evento_con_registro.pk}"
+            reverse("eventos:lector") + f"?evento={self.evento_con_registro.pk}",
+            follow=True,
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            response.context["evento_preseleccionado"], self.evento_con_registro
+            response.context["selected_event"], self.evento_con_registro
         )
+        self.assertEqual(response.context["scanner_mode"], "evento")
 
     def test_info_evento_api(self):
         self.client.force_login(self.staff_user)

@@ -3,6 +3,10 @@ import base64
 from django.core import signing
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, TemplateView
@@ -13,6 +17,8 @@ from academico.models import AsistenciaClase, Inscripcion
 from core.mixins import PassIdPermissionMixin
 from core.utils import generar_qr
 from usuarios.models import Usuario
+from eventos.forms import EscaneoAsistenciaEventoForm
+from eventos.models import Evento
 
 from .forms import EscaneoAsistenciaForm
 
@@ -61,13 +67,55 @@ class QrImagenView(PassIdPermissionMixin, View):
         return response
 
 
-class EscanearAsistenciaView(PassIdPermissionMixin, TemplateView):
+class EscanearAsistenciaView(LoginRequiredMixin, TemplateView):
     template_name = "asistencia_qr/lector.html"
-    required_permission = "asistencia_qr.escanear_asistencia"
+    login_url = "autenticacion:login"
+
+    def dispatch(self, request, *args, **kwargs):
+        user = request.user
+        self.can_scan_classes = (
+            user.is_superuser or user.has_perm("asistencia_qr.escanear_asistencia")
+        )
+        self.can_scan_events = (
+            user.is_superuser or user.has_perm("asistencia.add_asistencia")
+        )
+        if not self.can_scan_classes and not self.can_scan_events:
+            messages.error(request, "No tienes permiso para registrar asistencias.")
+            return redirect("home")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["form"] = EscaneoAsistenciaForm(user=self.request.user)
+        event_id = self.request.GET.get("evento")
+        selected_event = None
+        if self.can_scan_events and event_id and event_id.isdigit():
+            selected_event = Evento.objects.filter(pk=event_id).first()
+
+        initial_mode = self.request.GET.get("mode")
+        if initial_mode not in {"clase", "evento"}:
+            initial_mode = "evento" if selected_event and not self.can_scan_classes else "clase"
+        if initial_mode == "clase" and not self.can_scan_classes:
+            initial_mode = "evento"
+        elif initial_mode == "evento" and not self.can_scan_events:
+            initial_mode = "clase"
+
+        context["class_form"] = (
+            EscaneoAsistenciaForm(user=self.request.user)
+            if self.can_scan_classes else None
+        )
+        context["event_form"] = (
+            EscaneoAsistenciaEventoForm(
+                user=self.request.user,
+                initial_evento_id=selected_event.pk if selected_event else None,
+            )
+            if self.can_scan_events else None
+        )
+        context["can_scan_classes"] = self.can_scan_classes
+        context["can_scan_events"] = self.can_scan_events
+        context["scanner_mode"] = initial_mode
+        context["selected_event"] = selected_event
+        context["class_submit_url"] = reverse("asistencia_qr:registrar")
+        context["event_submit_url"] = reverse("eventos:registrar_qr")
         return context
 
 
