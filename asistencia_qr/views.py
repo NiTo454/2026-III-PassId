@@ -1,6 +1,7 @@
 import base64
 
 from django.core import signing
+from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views import View
@@ -107,47 +108,100 @@ class RegistrarAsistenciaQrView(PassIdPermissionMixin, View):
             matricula = form.cleaned_data["matricula"]
             metodo = "manual"
 
-        usuarios = list(
-            Usuario.objects.filter(matricula=matricula, activo=True).order_by("pk")[:2]
-        )
+        usuarios = list(Usuario.objects.filter(matricula=matricula).order_by("pk")[:2])
         if len(usuarios) != 1:
+            if not usuarios:
+                return JsonResponse(
+                    {"ok": False, "status": "usuario_no_encontrado",
+                     "message": "No existe una cuenta con esa matrícula."},
+                    status=404,
+                )
             return JsonResponse(
-                {"ok": False, "message": "No se encontró una cuenta activa única para esa matrícula."},
-                status=404,
+                {"ok": False, "status": "matricula_duplicada",
+                 "message": "Hay varias cuentas con esa matrícula. Contacta al administrador."},
+                status=409,
             )
         estudiante = usuarios[0]
-        horario = form.cleaned_data["horario"]
-        inscrito = Inscripcion.objects.filter(
-            usuario=estudiante,
-            materia=horario.materia,
-            grupo=horario.grupo,
-            periodo=horario.periodo,
-            activa=True,
-        ).exists()
-        if not inscrito:
+        if not estudiante.activo:
             return JsonResponse(
-                {
-                    "ok": False,
-                    "message": "El estudiante no tiene inscripción activa en esta clase, grupo y periodo.",
-                },
+                {"ok": False, "status": "cuenta_inactiva",
+                 "message": "La cuenta del alumno está inactiva. Un administrador debe activarla."},
                 status=403,
             )
 
-        ahora = timezone.localtime()
-        asistencia, creada = AsistenciaClase.objects.get_or_create(
-            horario=horario,
-            usuario=estudiante,
-            fecha=ahora.date(),
-            defaults={
-                "hora": ahora.time().replace(microsecond=0),
-                "estado": "presente",
-                "metodo": metodo,
-            },
+        horario = form.cleaned_data["horario"]
+        enrollment_permission = "asistencia_qr.inscribir_estudiante_en_clase"
+        can_enroll = (
+            request.user.is_superuser
+            or request.user.has_perm("asistencia_qr.escanear_asistencia")
+            or request.user.has_perm(enrollment_permission)
         )
+        enrollment_filter = {
+            "usuario": estudiante,
+            "materia": horario.materia,
+            "grupo": horario.grupo,
+            "periodo": horario.periodo,
+        }
+
+        with transaction.atomic():
+            inscripcion = Inscripcion.objects.select_for_update().filter(
+                **enrollment_filter
+            ).first()
+            if form.cleaned_data["inscribir"]:
+                if not can_enroll:
+                    return JsonResponse(
+                        {"ok": False, "status": "sin_permiso",
+                         "message": "No tienes permiso para inscribir alumnos desde el lector."},
+                        status=403,
+                    )
+                if inscripcion is None:
+                    inscripcion = Inscripcion.objects.create(
+                        **enrollment_filter,
+                        activa=True,
+                    )
+                    enrollment_message = "Inscripción creada"
+                elif not inscripcion.activa:
+                    inscripcion.activa = True
+                    inscripcion.save(update_fields=["activa"])
+                    enrollment_message = "Inscripción reactivada"
+                else:
+                    enrollment_message = "Inscripción ya activa"
+            elif inscripcion is None or not inscripcion.activa:
+                state = "sin_inscripcion" if inscripcion is None else "inscripcion_inactiva"
+                message = (
+                    "El alumno no está inscrito en esta materia, grupo y periodo."
+                    if inscripcion is None
+                    else "El alumno tiene una inscripción inactiva en esta materia, grupo y periodo."
+                )
+                return JsonResponse(
+                    {
+                        "ok": False,
+                        "status": state,
+                        "message": message,
+                        "can_enroll": can_enroll,
+                        "enrollment_required": True,
+                    },
+                    status=403,
+                )
+            else:
+                enrollment_message = "Inscripción activa"
+
+            ahora = timezone.localtime()
+            asistencia, creada = AsistenciaClase.objects.get_or_create(
+                horario=horario,
+                usuario=estudiante,
+                fecha=ahora.date(),
+                defaults={
+                    "hora": ahora.time().replace(microsecond=0),
+                    "estado": "presente",
+                    "metodo": metodo,
+                },
+            )
         if not creada:
             return JsonResponse(
                 {
                     "ok": False,
+                    "status": "asistencia_duplicada",
                     "duplicate": True,
                     "message": f"{estudiante} ya tiene asistencia registrada para esta clase hoy.",
                 },
@@ -157,7 +211,11 @@ class RegistrarAsistenciaQrView(PassIdPermissionMixin, View):
         return JsonResponse(
             {
                 "ok": True,
-                "message": f"Asistencia registrada para {estudiante} ({matricula}).",
+                "status": "inscrito",
+                "message": (
+                    f"{enrollment_message}. Asistencia registrada para "
+                    f"{estudiante} ({matricula})."
+                ),
                 "matricula": matricula,
                 "hora": asistencia.hora.strftime("%H:%M:%S"),
             }
