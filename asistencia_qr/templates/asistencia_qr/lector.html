@@ -17,6 +17,7 @@
             {{ form.horario }}
         </div>
         {{ form.token }}
+        {{ form.inscribir }}
         <div class="form-group">
             <label class="form-label" for="{{ form.matricula.id_for_label }}">{{ form.matricula.label }}</label>
             {{ form.matricula }}
@@ -24,10 +25,10 @@
         <div class="btn-group qr-action-group">
             <button id="start-camera" class="btn-submit" type="button">Activar cámara</button>
             <button id="submit-matricula" class="btn-submit" type="button">Registrar matrícula</button>
+            <button id="enroll-student" class="btn-submit" type="button" hidden>Inscribir alumno y registrar asistencia</button>
         </div>
     </form>
 
-    <video id="qr-camera" playsinline style="display: none; width: 100%; max-height: 420px; margin-top: 1.5rem; border-radius: 12px;"></video>
     <div id="qr-reader" style="display: none; max-width: 500px; margin: 1.5rem auto;"></div>
     <div id="scan-result" role="status" aria-live="polite" style="margin-top: 1rem;"></div>
 </section>
@@ -38,69 +39,173 @@
 <script>
 (() => {
     const form = document.getElementById("attendance-form");
+    const horarioInput = document.getElementById("id_horario");
     const tokenInput = document.getElementById("id_token");
+    const enrollInput = document.getElementById("id_inscribir");
     const matriculaInput = document.getElementById("id_matricula");
     const result = document.getElementById("scan-result");
-    const video = document.getElementById("qr-camera");
     const cameraButton = document.getElementById("start-camera");
     const matriculaButton = document.getElementById("submit-matricula");
-    let stream = null;
-    let scanning = false;
+    const enrollButton = document.getElementById("enroll-student");
     let submitting = false;
     let lastScannedToken = "";
     let lastScannedAt = 0;
-    let fallbackReader = null;
+    let qrReader = null;
+    let pendingEnrollment = null;
+    let scanDetected = false;
 
     const showResult = (message, ok) => {
         result.textContent = message;
         result.className = ok ? "alert alert-success" : "alert alert-error";
     };
 
+    const hasHorarios = horarioInput.options.length > 1;
+    const ensureHorarioSelected = () => {
+        if (horarioInput.value) return true;
+        showResult(
+            hasHorarios
+                ? "Selecciona una clase antes de escanear el QR."
+                : "No tienes horarios activos asignados para pasar asistencia. Pide al administrador que revise tus horarios.",
+            false
+        );
+        horarioInput.focus();
+        return false;
+    };
+
+    if (!hasHorarios) {
+        matriculaButton.disabled = true;
+        showResult(
+            "No hay horarios activos disponibles. Puedes abrir la cámara, pero necesitas un horario activo para registrar la asistencia.",
+            false
+        );
+    }
+
+    const clearEnrollmentAction = () => {
+        pendingEnrollment = null;
+        enrollButton.hidden = true;
+        enrollInput.value = "";
+    };
+
     const submitAttendance = async (formData) => {
         if (submitting) return;
-        const horario = document.getElementById("id_horario").value;
-        if (!horario) {
-            showResult("Selecciona primero una clase.", false);
-            return;
-        }
+        if (!ensureHorarioSelected()) return;
         submitting = true;
+        enrollButton.disabled = true;
+        let requestController = null;
+        let requestTimeout = null;
         try {
-            const response = await fetch(form.action, {
+            if (typeof AbortController !== "undefined") {
+                requestController = new AbortController();
+            }
+            showResult("QR detectado. Enviando al servidor para validar alumno e inscripción...", true);
+            console.info("Enviando QR al servidor de asistencia.", {
+                endpoint: form.action,
+                horario: horarioInput.value,
+            });
+            const fetchOptions = {
                 method: "POST",
                 body: formData,
-                headers: { "X-Requested-With": "XMLHttpRequest" }
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            };
+            if (requestController) {
+                fetchOptions.signal = requestController.signal;
+            }
+            const request = fetch(form.action, fetchOptions);
+            const timeout = new Promise((resolve, reject) => {
+                requestTimeout = window.setTimeout(() => {
+                    if (requestController) requestController.abort();
+                    const error = new Error("La validación del QR excedió el tiempo de espera.");
+                    error.name = "TimeoutError";
+                    reject(error);
+                }, 15000);
             });
-            const responseData = await response.json();
+            const response = await Promise.race([request, timeout]);
+            const responseBody = await response.text();
+            let responseData;
+            try {
+                responseData = JSON.parse(responseBody);
+            } catch (error) {
+                console.error("Respuesta no JSON al validar QR.", {
+                    status: response.status,
+                    body: responseBody.slice(0, 500),
+                });
+                showResult(
+                    `El servidor respondió HTTP ${response.status} con una página en vez de JSON. Revisa permisos, sesión y configuración CSRF.`,
+                    false
+                );
+                return;
+            }
+            if (!response.ok) {
+                console.error("El servidor rechazó la validación del QR.", {
+                    status: response.status,
+                    response: responseData,
+                });
+            }
             showResult(responseData.message || "No se pudo validar el QR.", response.ok && responseData.ok);
+            if (responseData.enrollment_required && responseData.can_enroll) {
+                pendingEnrollment = formData;
+                enrollButton.textContent = responseData.status === "inscripcion_inactiva"
+                    ? "Reactivar inscripción y registrar asistencia"
+                    : "Inscribir alumno y registrar asistencia";
+                enrollButton.hidden = false;
+            } else {
+                clearEnrollmentAction();
+            }
             if (response.ok) {
                 tokenInput.value = "";
                 matriculaInput.value = "";
             }
         } catch (error) {
-            showResult("No se pudo contactar al servidor. Revisa tu conexión e inténtalo de nuevo.", false);
+            console.error("Falló la petición para validar el QR.", error);
+            showResult(
+                error.name === "AbortError" || error.name === "TimeoutError"
+                    ? "El servidor no respondió en 15 segundos. El QR sí se leyó, pero la petición de validación quedó pendiente; revisa Django y el túnel ngrok."
+                    : "No se pudo contactar al servidor para validar el QR. Revisa la conexión y el túnel ngrok.",
+                false
+            );
         } finally {
+            if (requestTimeout !== null) {
+                window.clearTimeout(requestTimeout);
+            }
             submitting = false;
+            enrollButton.disabled = false;
         }
     };
 
     const submitToken = (token) => {
+        clearEnrollmentAction();
         const data = new FormData(form);
         data.set("token", token);
         data.set("matricula", "");
-        submitAttendance(data);
+        return submitAttendance(data);
     };
 
-    const submitMatricula = () => {
+    const submitMatricula = async () => {
         const matricula = matriculaInput.value.trim();
         if (!matricula) {
             showResult("Captura la matrícula del estudiante.", false);
             return;
         }
-        const data = new FormData(form);
-        data.set("token", "");
-        data.set("matricula", matricula);
-        submitAttendance(data);
+        clearEnrollmentAction();
+        try {
+            const data = new FormData(form);
+            data.set("token", "");
+            data.set("matricula", matricula);
+            await submitAttendance(data);
+        } catch (error) {
+            console.error("No se pudo preparar la matrícula para validación.", error);
+            showResult("No se pudo enviar la matrícula. Recarga el lector e inténtalo de nuevo.", false);
+        }
     };
+
+    enrollButton.addEventListener("click", () => {
+        if (!pendingEnrollment || submitting) return;
+        const data = new FormData(form);
+        data.set("token", pendingEnrollment.get("token") || "");
+        data.set("matricula", pendingEnrollment.get("matricula") || "");
+        data.set("inscribir", "on");
+        submitAttendance(data);
+    });
 
     form.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -115,75 +220,62 @@
             showResult("Este navegador no permite acceder a la cámara. Usa la captura manual.", false);
             return;
         }
-        if (!("BarcodeDetector" in window)) {
-            try {
-                fallbackReader = new Html5Qrcode("qr-reader");
-                document.getElementById("qr-reader").style.display = "block";
-                cameraButton.disabled = true;
-                await fallbackReader.start(
-                    { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
-                    (decodedText) => {
-                        const now = Date.now();
-                        if (!submitting && (decodedText !== lastScannedToken || now - lastScannedAt > 5000)) {
-                            lastScannedToken = decodedText;
-                            lastScannedAt = now;
-                            submitToken(decodedText);
-                        }
-                    },
-                    () => {}
-                );
-                showResult("Cámara activa. Coloca el QR dentro del recuadro.", true);
-            } catch (error) {
-                document.getElementById("qr-reader").style.display = "none";
-                cameraButton.disabled = false;
-                showResult("No se pudo iniciar la cámara. Verifica los permisos del navegador o usa captura manual.", false);
-            }
+        if (typeof Html5Qrcode === "undefined") {
+            showResult("No se cargó el lector QR local. Recarga la página o captura la matrícula manualmente.", false);
             return;
         }
         try {
-            const detector = new BarcodeDetector({ formats: ["qr_code"] });
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: "environment" } },
-                audio: false
-            });
-            video.srcObject = stream;
-            video.style.display = "block";
-            await video.play();
-            scanning = true;
+            qrReader = new Html5Qrcode("qr-reader");
+            document.getElementById("qr-reader").style.display = "block";
             cameraButton.disabled = true;
-
-            const scanFrame = async () => {
-                if (!scanning) return;
-                try {
-                    const codes = await detector.detect(video);
-                    if (codes.length && !submitting) {
-                        const token = codes[0].rawValue;
+            scanDetected = false;
+            showResult("Iniciando cámara y lector QR...", true);
+            await qrReader.start(
+                { facingMode: "environment" },
+                {
+                    fps: 15,
+                    qrbox: (viewfinderWidth, viewfinderHeight) => {
+                        const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.85);
+                        return { width: edge, height: edge };
+                    },
+                    disableFlip: false,
+                },
+                async (decodedText) => {
+                    try {
                         const now = Date.now();
-                        if (token !== lastScannedToken || now - lastScannedAt > 5000) {
-                            lastScannedToken = token;
+                        if (!submitting && (decodedText !== lastScannedToken || now - lastScannedAt > 5000)) {
+                            scanDetected = true;
+                            lastScannedToken = decodedText;
                             lastScannedAt = now;
-                            await submitToken(token);
+                            showResult("QR detectado. Validando alumno e inscripción...", true);
+                            await submitToken(decodedText);
                         }
+                    } catch (error) {
+                        console.error("No se pudo procesar el QR detectado.", error);
+                        showResult("Se detectó el QR, pero no se pudo preparar para enviarlo. Recarga el lector.", false);
                     }
-                } catch (error) {
-                    showResult("No se pudo leer el QR. Ajusta la cámara e inténtalo de nuevo.", false);
-                }
-                window.setTimeout(scanFrame, 250);
-            };
-            scanFrame();
+                },
+                () => {}
+            );
+            if (!scanDetected) {
+                showResult("Cámara activa. Coloca el QR completo dentro del recuadro.", true);
+            }
         } catch (error) {
-            showResult("No se pudo iniciar la cámara. Verifica los permisos del navegador o usa captura manual.", false);
+            console.error("No se pudo iniciar el lector QR.", error);
+            document.getElementById("qr-reader").style.display = "none";
+            cameraButton.disabled = false;
+            const reason = error.name === "NotAllowedError"
+                ? "Permite el acceso a la cámara en el navegador."
+                : error.name === "NotFoundError"
+                    ? "No se encontró una cámara disponible."
+                    : "Verifica los permisos y que el sitio use HTTPS o localhost.";
+            showResult(`No se pudo iniciar la cámara. ${reason} También puedes capturar la matrícula.`, false);
         }
     });
 
     window.addEventListener("pagehide", () => {
-        scanning = false;
-        if (stream) {
-            stream.getTracks().forEach((track) => track.stop());
-        }
-        if (fallbackReader) {
-            fallbackReader.stop().catch((error) => {
+        if (qrReader) {
+            qrReader.stop().catch((error) => {
                 console.error("No se pudo detener el lector QR.", error);
             });
         }

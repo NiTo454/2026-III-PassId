@@ -16,6 +16,10 @@ class EscaneoAsistenciaForm(forms.Form):
         strip=True,
         widget=forms.HiddenInput(),
     )
+    inscribir = forms.BooleanField(
+        required=False,
+        widget=forms.HiddenInput(),
+    )
     matricula = forms.CharField(
         max_length=50,
         required=False,
@@ -33,7 +37,7 @@ class EscaneoAsistenciaForm(forms.Form):
     def __init__(self, *args, user, **kwargs):
         super().__init__(*args, **kwargs)
         horarios = Horario.objects.filter(activo=True).select_related("materia", "aula")
-        if not user.is_superuser:
+        if not user.is_superuser and not user.has_perm("horario.admin"):
             horarios = horarios.filter(profesor=user)
         self.fields["horario"].queryset = horarios.order_by(
             "periodo", "dia_semana", "hora_inicio"

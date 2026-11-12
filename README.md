@@ -24,8 +24,8 @@ Este proyecto corresponde a la migracion y reingenieria del sistema legacy Pasap
 ---
 
 ### Recursos visuales sin conexión
-- Las pantallas usan la tipografia disponible en el sistema y los iconos incluidos en `static/css/icons.css`; no requieren Google Fonts ni Font Awesome por CDN.
-- El lector QR usa `BarcodeDetector` cuando está disponible y una copia local de `html5-qrcode` cuando no lo está. En ambos casos se puede registrar la asistencia capturando la matrícula manualmente. La biblioteca local conserva su licencia Apache 2.0 en `static/vendor/html5-qrcode/LICENSE`.
+- Las pantallas usan la tipografia disponible en el sistema y Font Awesome Free 7.3.1 instalado en `static/vendor/fontawesome/`, sin cargarlo desde un CDN. Se incluyen CSS, webfonts y licencia.
+- Los lectores QR de clases y eventos usan una copia local de `html5-qrcode`, sin depender de un CDN; el lector de clases aprovecha `BarcodeDetector` cuando está disponible y también permite capturar la matrícula manualmente. La biblioteca local conserva su licencia Apache 2.0 en `static/vendor/html5-qrcode/LICENSE`.
 
 ## 2. Variables de Entorno (.env)
 
@@ -36,6 +36,7 @@ El proyecto utiliza `python-dotenv` para aislar la configuracion sensible del en
 SECRET_KEY=
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
+CSRF_TRUSTED_ORIGINS=
 
 # Configuracion de Conexion a Base de Datos (MySQL)
 DB_ENGINE=django.db.backends.mysql
@@ -49,6 +50,8 @@ DB_PORT=
 LANGUAGE_CODE=es-mx
 TIME_ZONE=America/Mexico_City
 ```
+
+En desarrollo (`DEBUG=True`), se aceptan automáticamente dominios `*.ngrok-free.dev` y `*.ngrok-free.app`, incluyendo sus orígenes HTTPS para solicitudes POST. En producción, agrega el dominio exacto en `ALLOWED_HOSTS` y su origen HTTPS en `CSRF_TRUSTED_ORIGINS`; no habilites dominios ngrok de forma global.
 
 ---
 
@@ -105,9 +108,10 @@ El sistema integra 18 modelos que cubren la totalidad de los datos y reglas de n
 ### Aplicacion: asistencia_qr
 - Reutiliza `Usuario.matricula`, `Inscripcion`, `Horario` y `AsistenciaClase` de `usuarios` y `academico`; no duplica sus datos.
 - El QR contiene un token firmado asociado a la matrícula, con vigencia de cinco minutos. La pantalla del alumno renueva la imagen automáticamente.
-- El lector valida la matrícula, la inscripción activa en el horario seleccionado y la ausencia de un registro previo para ese día.
+- El lector valida la matrícula, la inscripción en materia, grupo y periodo del horario seleccionado, y la ausencia de un registro previo para ese día. Distingue cuentas inactivas, inscripciones inactivas y alumnos sin inscripción.
+- Con el permiso `asistencia_qr.inscribir_estudiante_en_clase`, el personal docente puede inscribir o reactivar al alumno desde el lector y registrar su asistencia en ese horario.
 - El lector de asistencia permite escanear con la cámara o capturar la matrícula manualmente. Para usar la cámara en producción, el sitio debe servirse mediante HTTPS.
-- Las migraciones agregan los permisos `asistencia_qr.ver_mi_qr`, `asistencia_qr.escanear_asistencia` y `asistencia_qr.ver_asistencias`, y asignan los permisos predeterminados de cada perfil. `basico` tiene acceso personal y consulta de eventos; `alumno` agrega autorregistro a eventos y consulta de su QR y asistencia; `profesor` puede consultar su carga, gestionar disponibilidad y registrar o consultar asistencias de sus grupos; `qa` tiene acceso de lectura funcional; `dev` administra los módulos funcionales sin administrar perfiles, permisos ni migraciones; `admin` recibe todos los permisos. El lector limita los horarios a los asignados al docente; los superusuarios pueden administrar todos.
+- Las migraciones agregan los permisos `asistencia_qr.ver_mi_qr`, `asistencia_qr.escanear_asistencia`, `asistencia_qr.ver_asistencias` y `asistencia_qr.inscribir_estudiante_en_clase`, y asignan los permisos predeterminados de cada perfil. `basico` tiene acceso personal y consulta de eventos; `alumno` agrega autorregistro a eventos y consulta de su QR y asistencia; `profesor` puede consultar su carga, gestionar disponibilidad y registrar o consultar asistencias de sus grupos; `qa` tiene acceso de lectura funcional; `dev` administra los módulos funcionales sin administrar perfiles, permisos ni migraciones; `admin` recibe todos los permisos. El lector limita los horarios a los asignados al docente; los superusuarios pueden administrar todos.
 
 ### Carga masiva de alumnos y profesores
 - En **Usuarios → Importar usuarios**, suba un archivo `.csv` o `.xlsx` con las columnas `username`, `email`, `nombre`, `apaterno`, `amaterno`, `matricula`, `grupo`, `whatsapp` y `rol`.
