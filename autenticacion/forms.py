@@ -10,14 +10,16 @@ class LoginForm(forms.Form):
         widget=forms.TextInput(attrs={
             "class": "form-control",
             "placeholder": "Ingresa tu usuario o correo",
-            "autofocus": "autofocus",
+            "autocomplete": "username",
+            "aria-describedby": "username-help",
         })
     )
     password = forms.CharField(
         label="Contraseña",
         widget=forms.PasswordInput(attrs={
             "class": "form-control",
-            "placeholder": "••••••••",
+            "placeholder": "Ingresa tu contraseña",
+            "autocomplete": "current-password",
         })
     )
 
@@ -53,6 +55,16 @@ class LoginForm(forms.Form):
 
 
 class RegistroUsuarioForm(forms.ModelForm):
+    nombre_completo = forms.CharField(
+        label="Nombre completo",
+        max_length=154,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "Ej. María Fernanda De-la-Cruz Pérez",
+            "autocomplete": "name",
+            "aria-describedby": "full-name-help",
+        }),
+    )
     password1 = forms.CharField(
         label="Contraseña",
         widget=forms.PasswordInput(attrs={
@@ -71,9 +83,6 @@ class RegistroUsuarioForm(forms.ModelForm):
     class Meta:
         model = Usuario
         fields = [
-            "nombre",
-            "apaterno",
-            "amaterno",
             "matricula",
             "email",
             "whatsapp",
@@ -81,9 +90,6 @@ class RegistroUsuarioForm(forms.ModelForm):
             "username",
         ]
         labels = {
-            "nombre": "Nombre(s)",
-            "apaterno": "Apellido paterno",
-            "amaterno": "Apellido materno",
             "matricula": "Matrícula",
             "email": "Correo electrónico",
             "whatsapp": "WhatsApp / teléfono",
@@ -91,9 +97,6 @@ class RegistroUsuarioForm(forms.ModelForm):
             "username": "Nombre de usuario",
         }
         widgets = {
-            "nombre": forms.TextInput(attrs={"class": "form-control"}),
-            "apaterno": forms.TextInput(attrs={"class": "form-control"}),
-            "amaterno": forms.TextInput(attrs={"class": "form-control"}),
             "matricula": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={
                 "class": "form-control",
@@ -109,12 +112,10 @@ class RegistroUsuarioForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field_name in ("nombre", "apaterno", "amaterno", "matricula"):
-            self.fields[field_name].required = True
+        self._name_parts = None
+        self.fields["username"].widget.attrs["id"] = "register-username"
         self.order_fields([
-            "nombre",
-            "apaterno",
-            "amaterno",
+            "nombre_completo",
             "matricula",
             "email",
             "whatsapp",
@@ -123,6 +124,26 @@ class RegistroUsuarioForm(forms.ModelForm):
             "password1",
             "password2",
         ])
+
+    def clean_nombre_completo(self):
+        full_name = self.cleaned_data["nombre_completo"]
+        full_name = " ".join(full_name.split())
+        name_words = full_name.split()
+        if "," in full_name or len(name_words) < 3:
+            raise ValidationError(
+                "Escribe tus nombres y dos apellidos separados por espacios, sin comas. "
+                "Ejemplo: María Fernanda De-la-Cruz Pérez."
+            )
+        name_parts = [
+            " ".join(name_words[:-2]),
+            name_words[-2],
+            name_words[-1],
+        ]
+        if any(len(part) > 50 for part in name_parts):
+            raise ValidationError("Cada parte del nombre debe tener 50 caracteres o menos.")
+
+        self._name_parts = name_parts
+        return full_name
 
     def clean_username(self):
         username = self.cleaned_data["username"].strip()
@@ -143,13 +164,14 @@ class RegistroUsuarioForm(forms.ModelForm):
 
         if password1 and password2 and password1 != password2:
             self.add_error("password2", "Las contraseñas no coinciden.")
-        elif password1:
+        elif password1 and self._name_parts:
+            name_parts = self._name_parts
             user = Usuario(
                 username=cleaned_data.get("username", ""),
                 email=cleaned_data.get("email", ""),
-                nombre=cleaned_data.get("nombre", ""),
-                apaterno=cleaned_data.get("apaterno", ""),
-                amaterno=cleaned_data.get("amaterno", ""),
+                nombre=name_parts[0],
+                apaterno=name_parts[1],
+                amaterno=name_parts[2],
             )
             try:
                 validate_password(password1, user)
@@ -160,6 +182,7 @@ class RegistroUsuarioForm(forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
+        user.nombre, user.apaterno, user.amaterno = self._name_parts
         user.set_password(self.cleaned_data["password1"])
         if commit:
             user.save()

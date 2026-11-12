@@ -6,12 +6,18 @@ from django.db import transaction
 from django.views.generic import CreateView
 from django.utils.text import slugify
 from usuarios.models import Perfil
+from .context import AUTH_TEMPLATE, build_auth_context
 from .forms import LoginForm, RegistroUsuarioForm
 
 class CustomLoginView(LoginView):
     authentication_form = LoginForm
-    template_name = "autenticacion/login.html"
+    template_name = AUTH_TEMPLATE
     redirect_authenticated_user = True
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(build_auth_context(self.request, "login", context["form"]))
+        return context
 
     def form_valid(self, form):
         user = form.get_user()
@@ -23,8 +29,13 @@ class CustomLoginView(LoginView):
 
 class RegistroUsuarioView(CreateView):
     form_class = RegistroUsuarioForm
-    template_name = "autenticacion/registro.html"
+    template_name = AUTH_TEMPLATE
     success_url = reverse_lazy("autenticacion:login")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(build_auth_context(self.request, "register", context["form"]))
+        return context
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
@@ -59,12 +70,9 @@ class RegistroUsuarioView(CreateView):
 
 class CustomLogoutView(LogoutView):
     next_page = reverse_lazy("autenticacion:login")
-    http_method_names = ["get", "post", "options"]
-
-    def get(self, request, *args, **kwargs):
-        return self.post(request, *args, **kwargs)
+    http_method_names = ["post", "options"]
 
     def dispatch(self, request, *args, **kwargs):
         response = super().dispatch(request, *args, **kwargs)
-        messages.info(request, "Has cerrado sesión correctamente.")
+        messages.success(request, "Has cerrado sesión correctamente.")
         return response

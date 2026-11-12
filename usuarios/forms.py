@@ -212,7 +212,6 @@ class PasswordResetRequestForm(forms.Form):
         widget=forms.TextInput(attrs={
             "class": "form-control",
             "autocomplete": "username",
-            "autofocus": "autofocus",
         }),
     )
 
