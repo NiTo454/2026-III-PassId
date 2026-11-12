@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - PassID{% endblock %}
+
+{% block content %}
+<div class="content-narrow">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">{{ title }}</h1>
+            <p class="page-subtitle">{{ subtitle }}</p>
+        </div>
+        {% if user.is_superuser or perms.registro.add_registro_masivo %}
+        <div class="page-actions">
+            <a href="{% url 'eventos:registro_template' %}" class="btn-create">
+                <i class="fa-solid fa-download" aria-hidden="true"></i> Descargar plantilla
+            </a>
+            <a href="{% url 'eventos:registro_import' %}" class="btn-create">
+                <i class="fa-solid fa-file-import" aria-hidden="true"></i> Importar registros
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <section class="glass-card card-section" aria-labelledby="event-registration-filter-title">
+        <h2 class="card-section-title" id="event-registration-filter-title">
+            <i class="fa-solid fa-filter" aria-hidden="true"></i> Filtrar asistentes
+        </h2>
+        <form
+            method="get"
+            class="filter-grid filter-grid--embedded event-registration-filters"
+            data-current-event="{{ evento_seleccionado.pk|default:'' }}"
+        >
+            <div class="form-group">
+                <label class="form-label" for="filter-evento">Evento <span class="required-mark">*</span></label>
+                <select class="form-control" id="filter-evento" name="evento" required>
+                    <option value="">— Selecciona un evento —</option>
+                    {% for evento in eventos %}
+                    <option value="{{ evento.pk }}" {% if filters.evento == evento.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ evento.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="filter-grupo">Grupo</label>
+                <select class="form-control" id="filter-grupo" name="grupo">
+                    <option value="">— Todos —</option>
+                    {% for grupo in grupos %}
+                    <option value="{{ grupo }}" {% if filters.grupo == grupo %}selected{% endif %}>{{ grupo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="filter-categoria">Categoría</label>
+                <select class="form-control" id="filter-categoria" name="categoria">
+                    <option value="">— Todas —</option>
+                    {% for categoria in categorias %}
+                    <option value="{{ categoria }}" {% if filters.categoria == categoria %}selected{% endif %}>{{ categoria }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group filter-search-field">
+                <label class="form-label" for="filter-query">Matrícula o nombre</label>
+                <input
+                    class="form-control"
+                    id="filter-query"
+                    name="q"
+                    type="search"
+                    value="{{ filters.q }}"
+                    placeholder="Buscar..."
+                    autocomplete="off"
+                >
+            </div>
+            <button type="submit" class="btn-search filter-action">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                Buscar
+            </button>
+            <button type="button" class="btn-cancel filter-action filter-clear" id="clear-registration-filters">
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                Limpiar filtros
+            </button>
+        </form>
+
+        {% if not evento_seleccionado %}
+        <div class="alert alert-info">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            Selecciona un evento para consultar y registrar asistentes.
+        </div>
+        {% endif %}
+    </section>
+
+    {% if evento_seleccionado %}
+    <section class="glass-card card-section" aria-labelledby="event-registration-attendees-title">
+        <div class="results-heading">
+            <div>
+                <h2 class="card-section-title" id="event-registration-attendees-title">
+                    Asistentes disponibles
+                </h2>
+                <p class="muted-meta">{{ evento_seleccionado.nombre }}</p>
+            </div>
+            <span class="badge-status badge-active">{{ usuarios|length }} disponibles</span>
+        </div>
+
+        {% if form.non_field_errors or form.usuarios.errors %}
+        <div class="alert alert-error form-error" role="alert">
+            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+            <div>
+                {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                {% for error in form.usuarios.errors %}<p>{{ error }}</p>{% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if usuarios %}
+        <form method="post" class="event-registration-form">
+            {% csrf_token %}
+            {{ form.evento }}
+            <input type="hidden" name="grupo" value="{{ filters.grupo }}">
+            <input type="hidden" name="categoria" value="{{ filters.categoria }}">
+            <input type="hidden" name="q" value="{{ filters.q }}">
+
+            {% if usuarios_seleccionados_fuera_filtro %}
+            <div class="selection-panel">
+                <h3 class="card-section-title">
+                    Seleccionados en búsquedas anteriores
+                    <span class="selection-count">
+                        ({{ usuarios_seleccionados_fuera_filtro|length }})
+                    </span>
+                </h3>
+                <p class="muted-meta">
+                    Se conservarán aunque no aparezcan en los filtros actuales. Desmarca los que quieras quitar.
+                </p>
+                <div class="selectable-list">
+                    {% for usuario in usuarios_seleccionados_fuera_filtro %}
+                    <label class="selectable-item">
+                        <input type="checkbox" name="usuarios" value="{{ usuario.pk }}" checked>
+                        <span class="selectable-item-details">
+                            <strong>{{ usuario.nombre|default:usuario.username }} {{ usuario.apaterno|default:"" }} {{ usuario.amaterno|default:"" }}</strong>
+                            <span>
+                                Matrícula: {{ usuario.matricula|default:"—" }}
+                                <span class="metadata-separator">·</span>
+                                Grupo: {{ usuario.grupo|default:"—" }}
+                                <span class="metadata-separator">·</span>
+                                Categoría: {{ usuario.categoria|default:"—" }}
+                            </span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="selection-toolbar">
+                <label class="checkbox-item select-all-control">
+                    <input type="checkbox" id="select-all-attendees">
+                    <span>Seleccionar todos los resultados</span>
+                </label>
+                <span class="selection-count" aria-live="polite">
+                    <span id="selected-attendees-count">{{ selected_user_ids|length }}</span> seleccionados
+                </span>
+            </div>
+
+            <div class="selectable-list">
+                {% for usuario in usuarios %}
+                <label class="selectable-item">
+                    <input
+                        type="checkbox"
+                        name="usuarios"
+                        value="{{ usuario.pk }}"
+                        class="event-registration-candidate"
+                        {% if usuario.pk|stringformat:"s" in selected_user_ids %}checked{% endif %}
+                    >
+                    <span class="selectable-item-details">
+                        <strong>{{ usuario.nombre|default:usuario.username }} {{ usuario.apaterno|default:"" }} {{ usuario.amaterno|default:"" }}</strong>
+                        <span>
+                            Matrícula: {{ usuario.matricula|default:"—" }}
+                            <span class="metadata-separator">·</span>
+                            Grupo: {{ usuario.grupo|default:"—" }}
+                            <span class="metadata-separator">·</span>
+                            Categoría: {{ usuario.categoria|default:"—" }}
+                        </span>
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <div class="form-footer">
+                <div class="form-field-compact">
+                    <label class="form-label" for="{{ form.equipo.id_for_label }}">{{ form.equipo.label }}</label>
+                    {{ form.equipo }}
+                    {% for error in form.equipo.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="form-actions">
+                    <a href="{{ cancel_url }}" class="btn-cancel">
+                        <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn-submit">
+                        <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Registrar seleccionados
+                    </button>
+                </div>
+            </div>
+        </form>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            No hay asistentes que coincidan con los filtros o todos ya están registrados en este evento.
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/evento-registro.js' %}"></script>
+{% endblock %}
