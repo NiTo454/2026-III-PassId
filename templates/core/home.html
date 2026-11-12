@@ -16,36 +16,55 @@
 
     <div class="dashboard-layout">
         <section class="glass-card dashboard-card dashboard-id-card" aria-labelledby="pass-id-title">
-            <div class="dashboard-section-heading">
+            <article class="pass-ticket pass-ticket-dashboard">
+                <header class="pass-ticket-header">
+                    <div class="pass-ticket-brand">
+                        <i class="fa-solid fa-id-card" aria-hidden="true"></i>
+                        <span>PASSID <small>UTVAM</small></span>
+                    </div>
+                    <span class="pass-ticket-chip">PASE DIGITAL</span>
+                </header>
                 <div>
-                    <p class="dashboard-eyebrow">IDENTIFICACIÓN</p>
-                    <h2 class="dashboard-card-title" id="pass-id-title">Pass-ID digital</h2>
+                    <p class="pass-ticket-eyebrow">IDENTIFICACIÓN INSTITUCIONAL</p>
+                    <h2 class="pass-ticket-title" id="pass-id-title">Pase de asistencia</h2>
                 </div>
-                <i class="fa-regular fa-id-card dashboard-heading-icon" aria-hidden="true"></i>
-            </div>
 
-            <div class="dashboard-id-content">
                 {% if request.user.matricula %}
                     {% if user.is_superuser or perms.asistencia_qr.ver_mi_qr %}
-                    <img
-                        class="pass-id-qr dashboard-qr"
-                        id="pass-id-qr"
-                        src="{% url 'asistencia_qr:qr_imagen' %}"
-                        data-qr-refresh-url="{% url 'asistencia_qr:qr_imagen' %}"
-                        alt="Código QR firmado de asistencia Pass-ID"
-                    >
+                    <div class="pass-ticket-qr-frame">
+                        <img
+                            class="pass-id-qr dashboard-qr"
+                            id="pass-id-qr"
+                            src="{% url 'asistencia_qr:qr_imagen' %}"
+                            data-qr-refresh-url="{% url 'asistencia_qr:qr_imagen' %}"
+                            alt="Código QR firmado de asistencia PASS-ID"
+                        >
+                    </div>
                     {% else %}
-                    <p class="dashboard-empty">El QR de asistencia no está habilitado para tu perfil.</p>
+                    <p class="pass-ticket-notice">El QR de asistencia no está habilitado para tu perfil.</p>
                     {% endif %}
                 {% else %}
-                <p class="dashboard-empty">Tu cuenta no tiene una matrícula registrada.</p>
+                <p class="pass-ticket-notice">Tu cuenta no tiene una matrícula registrada.</p>
                 {% endif %}
 
-                <div class="dashboard-identity">
-                    <h3>{{ request.user.nombre|default:request.user.username }}</h3>
-                    <p>Matrícula <strong>{{ request.user.matricula|default:"No registrada" }}</strong></p>
+                <div class="pass-ticket-divider" aria-hidden="true"><span></span></div>
+                <div class="pass-ticket-identity">
+                    <div>
+                        <span class="pass-ticket-label">TITULAR</span>
+                        <strong>{{ request.user.nombre|default:request.user.username }}{% if request.user.apaterno %} {{ request.user.apaterno }}{% endif %}{% if request.user.amaterno %} {{ request.user.amaterno }}{% endif %}</strong>
+                    </div>
+                    <div class="pass-ticket-id">
+                        <span class="pass-ticket-label">MATRÍCULA</span>
+                        <strong>{{ request.user.matricula|default:"No registrada" }}</strong>
+                    </div>
                 </div>
-            </div>
+                <footer class="pass-ticket-footer">
+                    <span>Válido para registro de asistencia</span>
+                    {% if user.is_superuser or perms.asistencia_qr.ver_mi_qr %}
+                    <a href="{% url 'asistencia_qr:mi_qr' %}">Ampliar QR <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+                    {% endif %}
+                </footer>
+            </article>
         </section>
 
         <section class="glass-card dashboard-card" aria-labelledby="summary-title">

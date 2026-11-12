@@ -27,7 +27,11 @@ class MiQrView(PassIdPermissionMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["matricula"] = self.request.user.matricula
+        user = self.request.user
+        context["matricula"] = user.matricula
+        context["nombre_completo"] = " ".join(
+            part for part in (user.nombre, user.apaterno, user.amaterno) if part
+        ) or user.username
         return context
 
 

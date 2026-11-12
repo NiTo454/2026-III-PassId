@@ -107,6 +107,10 @@ class HomeMetricsTests(TestCase):
         self.assertContains(response, "Materias inscritas")
         self.assertContains(response, "Evento futuro")
         self.assertNotContains(response, "20/12/2026")
+        self.assertContains(response, 'class="dashboard"')
+        self.assertContains(response, 'aria-current="page"')
+        self.assertContains(response, 'aria-controls="navLinks"')
+        self.assertContains(response, 'class="site-footer"')
 
     def test_next_class_matches_today_enrollment_group_and_period(self):
         clase_pasada = self.create_schedule(start="09:00", end="10:00")

@@ -17,8 +17,14 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer>
-        <p>&copy; 2026 PassID - UTVAM | Sistema Integral de Control Institucional MVC/MVT</p>
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <a class="site-footer-brand" href="{% if user.is_authenticated %}{% url 'home' %}{% else %}{% url 'autenticacion:login' %}{% endif %}">
+                <i class="fa-solid fa-id-card" aria-hidden="true"></i>
+                <span>PassID</span>
+            </a>
+            <p>&copy; 2026 UTVAM <span aria-hidden="true">·</span> Sistema Integral de Control Institucional</p>
+        </div>
     </footer>
 
     {% block extra_js %}{% endblock %}

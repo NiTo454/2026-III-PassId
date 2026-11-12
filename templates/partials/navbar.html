@@ -1,13 +1,13 @@
 <header>
     <nav class="navbar">
-        <a href="{% if user.is_authenticated %}{% url 'home' %}{% else %}{% url 'autenticacion:login' %}{% endif %}" class="brand">
-            <i class="fa-solid fa-id-card"></i>
+        <a href="{% if user.is_authenticated %}{% url 'home' %}{% else %}{% url 'autenticacion:login' %}{% endif %}" class="brand" {% if user.is_authenticated and request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %}>
+            <i class="fa-solid fa-id-card" aria-hidden="true"></i>
             <span>PassID</span>
         </a>
 
         {% if user.is_authenticated %}
-        <button class="nav-hamburger" id="navToggle" aria-label="Abrir menú" aria-expanded="false">
-            <i class="fa-solid fa-bars"></i>
+        <button class="nav-hamburger" id="navToggle" type="button" aria-label="Abrir menú" aria-controls="navLinks" aria-expanded="false">
+            <i class="fa-solid fa-bars" aria-hidden="true"></i>
         </button>
 
         <div class="nav-links" id="navLinks">

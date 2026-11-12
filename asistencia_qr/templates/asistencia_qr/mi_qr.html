@@ -4,22 +4,65 @@
 {% block title %}Mi QR de asistencia - PassID{% endblock %}
 
 {% block content %}
-<section class="glass-card" style="max-width: 640px; margin: 0 auto; text-align: center;">
-    <h1 class="form-title">Mi código QR de asistencia</h1>
+<section class="qr-page" aria-labelledby="student-qr-title">
+    <header class="qr-page-heading">
+        <p class="qr-page-eyebrow">TU IDENTIFICACIÓN DIGITAL</p>
+        <h1 class="page-title" id="student-qr-title">Mi pase de asistencia</h1>
+        <p class="page-subtitle">Muestra este código a tu docente para registrar tu asistencia.</p>
+    </header>
+
     {% if matricula %}
-    <p style="color: var(--text-muted); margin: 0.75rem 0;">Matrícula: <strong>{{ matricula }}</strong></p>
-    <img
-        id="student-qr"
-        src="{% url 'asistencia_qr:qr_imagen' %}"
-        data-qr-refresh-url="{% url 'asistencia_qr:qr_imagen' %}"
-        alt="Código QR firmado de la matrícula {{ matricula }}"
-        width="280"
-        height="280"
-        style="background: #fff; padding: 0.75rem; border-radius: 12px; margin: 1.5rem auto;"
-    >
-    <p style="color: var(--text-muted);">El código se renueva automáticamente y vence después de cinco minutos.</p>
+    <article class="pass-ticket pass-ticket-full">
+        <header class="pass-ticket-header">
+            <div class="pass-ticket-brand">
+                <i class="fa-solid fa-id-card" aria-hidden="true"></i>
+                <span>PASSID <small>UTVAM</small></span>
+            </div>
+            <span class="pass-ticket-chip">PASE DIGITAL</span>
+        </header>
+
+        <div class="pass-ticket-intro">
+            <p class="pass-ticket-eyebrow">IDENTIFICACIÓN INSTITUCIONAL</p>
+            <h2 class="pass-ticket-title">Asistencia académica</h2>
+        </div>
+
+        <div class="pass-ticket-qr-frame pass-ticket-qr-frame-large">
+            <img
+                class="pass-id-qr pass-ticket-qr"
+                id="student-qr"
+                src="{% url 'asistencia_qr:qr_imagen' %}"
+                data-qr-refresh-url="{% url 'asistencia_qr:qr_imagen' %}"
+                alt="Código QR firmado de asistencia de {{ nombre_completo }}"
+            >
+        </div>
+
+        <div class="pass-ticket-divider" aria-hidden="true"><span></span></div>
+
+        <div class="pass-ticket-identity">
+            <div>
+                <span class="pass-ticket-label">TITULAR</span>
+                <strong>{{ nombre_completo }}</strong>
+            </div>
+            <div class="pass-ticket-id">
+                <span class="pass-ticket-label">MATRÍCULA</span>
+                <strong>{{ matricula }}</strong>
+            </div>
+        </div>
+
+        <footer class="pass-ticket-footer">
+            <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Código personal y temporal</span>
+            <span><i class="fa-solid fa-rotate" aria-hidden="true"></i> Se renueva automáticamente</span>
+        </footer>
+    </article>
+    <p class="qr-page-note">Por seguridad, el código vence después de cinco minutos. Mantén esta pantalla abierta mientras se registra tu asistencia.</p>
     {% else %}
-    <p class="alert alert-error">Tu cuenta no tiene una matrícula registrada. Contacta a administración.</p>
+    <div class="qr-page-error" role="alert">
+        <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+        <div>
+            <h2>No tienes una matrícula registrada</h2>
+            <p>Contacta a administración para actualizar los datos de tu cuenta.</p>
+        </div>
+    </div>
     {% endif %}
 </section>
 {% endblock %}

@@ -95,13 +95,43 @@ class QrAttendanceTests(TestCase):
         response = self.client.get(reverse("home"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="pass-ticket pass-ticket-dashboard"')
         self.assertContains(
             response,
             f'src="{reverse("asistencia_qr:qr_imagen")}"',
         )
         self.assertContains(response, "Código QR firmado de asistencia PASS-ID")
+        self.assertContains(response, reverse("asistencia_qr:mi_qr"))
         self.assertContains(response, "/static/js/qr-refresh.js")
         self.assertNotContains(response, "data:image/png;base64")
+
+    def test_my_qr_renders_a_ticket_with_student_identity_and_refresh(self):
+        self.student.nombre = "Ada"
+        self.student.apaterno = "Lovelace"
+        self.student.save(update_fields=["nombre", "apaterno"])
+        self.client.force_login(self.student)
+
+        response = self.client.get(reverse("asistencia_qr:mi_qr"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="pass-ticket pass-ticket-full"')
+        self.assertContains(response, "Ada Lovelace")
+        self.assertContains(response, self.student.matricula)
+        self.assertContains(response, 'data-qr-refresh-url=')
+        self.assertContains(response, "/static/js/qr-refresh.js")
+        self.assertNotContains(response, "style=")
+
+    def test_my_qr_explains_when_student_has_no_matricula(self):
+        self.student.matricula = ""
+        self.student.save(update_fields=["matricula"])
+        self.client.force_login(self.student)
+
+        response = self.client.get(reverse("asistencia_qr:mi_qr"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No tienes una matrícula registrada")
+        self.assertNotContains(response, 'id="student-qr"')
+        self.assertNotContains(response, "/static/js/qr-refresh.js")
 
     def test_scanner_renders_hidden_enrollment_field_used_by_reader_script(self):
         self.client.force_login(self.teacher)
