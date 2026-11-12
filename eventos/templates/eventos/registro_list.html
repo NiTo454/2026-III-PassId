@@ -1,5 +1,56 @@
 {% extends 'common/list_base.html' %}
 
+{% block search_form %}
+<form method="get" class="filter-grid">
+    <div class="form-group">
+        <label class="form-label" for="filter-registro-evento">Evento</label>
+        <select class="form-control" id="filter-registro-evento" name="evento">
+            <option value="">— Todos los eventos —</option>
+            {% for evento in eventos %}
+            <option value="{{ evento.pk }}" {% if filters.evento == evento.pk|stringformat:"s" %}selected{% endif %}>
+                {{ evento.nombre }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label class="form-label" for="filter-registro-grupo">Grupo</label>
+        <select class="form-control" id="filter-registro-grupo" name="grupo">
+            <option value="">— Todos —</option>
+            {% for grupo in grupos %}
+            <option value="{{ grupo }}" {% if filters.grupo == grupo %}selected{% endif %}>{{ grupo }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label class="form-label" for="filter-registro-categoria">Categoría</label>
+        <select class="form-control" id="filter-registro-categoria" name="categoria">
+            <option value="">— Todas —</option>
+            {% for categoria in categorias %}
+            <option value="{{ categoria }}" {% if filters.categoria == categoria %}selected{% endif %}>{{ categoria }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group filter-search-field">
+        <label class="form-label" for="filter-registro-query">Matrícula o nombre</label>
+        <input
+            type="search"
+            id="filter-registro-query"
+            name="q"
+            value="{{ filters.q }}"
+            class="form-control"
+            placeholder="Buscar..."
+        >
+    </div>
+    <button type="submit" class="btn-search filter-action">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Filtrar
+    </button>
+    <a href="{% url 'eventos:registro_list' %}" class="btn-cancel filter-action filter-clear">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i> Limpiar
+    </a>
+</form>
+{% endblock %}
+
 {% block table_head %}
 <tr>
     <th>Evento</th>
@@ -18,7 +69,7 @@
     <td>{{ r.usuario.nombre|default:r.usuario.username }} {{ r.usuario.apaterno|default:"" }}</td>
     <td>{{ r.usuario.matricula|default:"--" }}</td>
     <td>{{ r.equipo|default:"Individual" }}</td>
-    <td><span style="font-size: 0.85rem; color: var(--text-muted);">{{ r.fecha_registro|date:"d/m/Y H:i" }}</span></td>
+    <td><span class="text-muted-sm">{{ r.fecha_registro|date:"d/m/Y H:i" }}</span></td>
     {% if user.is_superuser or perms.registro.change_registro or perms.registro.delete_registro %}<td>
         <div class="actions">
             {% if user.is_superuser or perms.registro.change_registro %}<a href="{% url 'eventos:registro_update' r.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>{% endif %}
@@ -28,7 +79,7 @@
 </tr>
 {% empty %}
 <tr>
-    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+    <td colspan="6" class="table-empty">
         No se encontraron pre-registros.
     </td>
 </tr>

@@ -1,11 +1,17 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View, TemplateView
+from django.views.generic.edit import FormView
 from django.db.models import Q, Exists, OuterRef
+from django.db import transaction
 from django.contrib import messages
 from django.utils import timezone
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+from django.core.exceptions import ValidationError
 from django.core import signing
+from urllib.parse import urlencode
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 import json
 from urllib.parse import urlencode
 from django.urls import reverse
@@ -13,7 +19,15 @@ from django.views.generic import RedirectView
 from core.mixins import PassIdPermissionMixin
 from usuarios.models import Usuario
 from .models import Evento, Registro, Asistencia
-from .forms import EventoForm, RegistroEventoForm, AsistenciaEventoForm, EscaneoAsistenciaEventoForm
+from .forms import (
+    EventoForm,
+    RegistroEventoForm,
+    RegistroMultipleEventoForm,
+    RegistroImportForm,
+    AsistenciaEventoForm,
+    EscaneoAsistenciaEventoForm,
+)
+from .importacion_registros import import_registros
 
 
 
@@ -115,13 +129,31 @@ class RegistroListView(PassIdPermissionMixin, ListView):
     required_permission = "registro.view_registro"
     create_permission = "registro.add_registro"
 
+    def get_filters(self):
+        return {
+            "evento": self.request.GET.get("evento", "").strip(),
+            "grupo": self.request.GET.get("grupo", "").strip(),
+            "categoria": self.request.GET.get("categoria", "").strip(),
+            "q": self.request.GET.get("q", "").strip(),
+        }
+
     def get_queryset(self):
+        self.filters = self.get_filters()
         queryset = Registro.objects.select_related("evento", "usuario").order_by("-fecha_registro")
-        query = self.request.GET.get("q", "").strip()
+        if self.filters["evento"].isdecimal():
+            queryset = queryset.filter(evento_id=self.filters["evento"])
+        if self.filters["grupo"]:
+            queryset = queryset.filter(usuario__grupo=self.filters["grupo"])
+        if self.filters["categoria"]:
+            queryset = queryset.filter(usuario__categoria=self.filters["categoria"])
+
+        query = self.filters["q"]
         if query:
             queryset = queryset.filter(
                 Q(evento__nombre__icontains=query) |
                 Q(usuario__nombre__icontains=query) |
+                Q(usuario__apaterno__icontains=query) |
+                Q(usuario__amaterno__icontains=query) |
                 Q(usuario__matricula__icontains=query) |
                 Q(usuario__username__icontains=query) |
                 Q(equipo__icontains=query)
@@ -130,32 +162,249 @@ class RegistroListView(PassIdPermissionMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
+        filters = getattr(self, "filters", self.get_filters())
+        context["query"] = filters["q"]
+        context["filters"] = filters
+        context["eventos"] = Evento.objects.all().order_by("nombre")
+        context["grupos"] = (
+            Usuario.objects.filter(registros_eventos__isnull=False)
+            .exclude(grupo="")
+            .values_list("grupo", flat=True)
+            .distinct()
+            .order_by("grupo")
+        )
+        context["categorias"] = (
+            Usuario.objects.filter(registros_eventos__isnull=False)
+            .exclude(categoria__isnull=True)
+            .exclude(categoria="")
+            .values_list("categoria", flat=True)
+            .distinct()
+            .order_by("categoria")
+        )
+        context["pagination_query"] = urlencode(
+            {key: value for key, value in filters.items() if value}
+        )
         context["page_title"] = "Pre-registros a Eventos"
         context["page_subtitle"] = "Listado de asistentes y equipos pre-inscritos a eventos"
         context["create_url"] = reverse_lazy("eventos:registro_create")
         context["create_label"] = "Nuevo Pre-registro"
-        context["search_placeholder"] = "Buscar por evento, alumno, matrícula o equipo..."
         return context
 
 
-class RegistroCreateView(PassIdPermissionMixin, CreateView):
-    model = Registro
-    form_class = RegistroEventoForm
-    template_name = "eventos/registro_form.html"
-    success_url = reverse_lazy("eventos:registro_list")
+class RegistroCreateView(PassIdPermissionMixin, View):
+    template_name = "eventos/registro_create.html"
     required_permission = "registro.add_registro"
 
+    def get_filters(self, data):
+        return {
+            "evento": data.get("evento", "").strip(),
+            "grupo": data.get("grupo", "").strip(),
+            "categoria": data.get("categoria", "").strip(),
+            "q": data.get("q", "").strip(),
+        }
+
+    def get_event(self, filters):
+        if not filters["evento"].isdecimal():
+            return None
+        return Evento.objects.filter(pk=filters["evento"]).first()
+
+    def get_eligible_users(self, evento):
+        if evento is None:
+            return Usuario.objects.none()
+
+        registered_user_ids = Registro.objects.filter(evento=evento).values("usuario_id")
+        return Usuario.objects.exclude(pk__in=registered_user_ids)
+
+    def get_candidates(self, evento, filters):
+        candidates = self.get_eligible_users(evento)
+        if evento is None:
+            return candidates
+        if filters["grupo"]:
+            candidates = candidates.filter(grupo=filters["grupo"])
+        if filters["categoria"]:
+            candidates = candidates.filter(categoria=filters["categoria"])
+        if filters["q"]:
+            query = filters["q"]
+            candidates = candidates.filter(
+                Q(matricula__icontains=query)
+                | Q(username__icontains=query)
+                | Q(nombre__icontains=query)
+                | Q(apaterno__icontains=query)
+                | Q(amaterno__icontains=query)
+            )
+        return candidates.order_by("grupo", "nombre", "apaterno", "amaterno")
+
+    def get_context_data(self, *, data, form=None):
+        filters = self.get_filters(data)
+        evento = self.get_event(filters)
+        eligible_users = self.get_eligible_users(evento)
+        candidates = self.get_candidates(evento, filters)
+        if form and form.is_bound:
+            submitted_user_ids = form["usuarios"].value() or []
+        else:
+            submitted_user_ids = data.getlist("seleccionados")
+        submitted_user_ids = [
+            user_id for user_id in submitted_user_ids if str(user_id).isdecimal()
+        ]
+        selected_users = eligible_users.filter(pk__in=submitted_user_ids)
+        visible_user_ids = candidates.values_list("pk", flat=True)
+        previously_selected_users = selected_users.exclude(pk__in=visible_user_ids)
+        form = form or RegistroMultipleEventoForm(
+            initial={"evento": evento.pk} if evento else None,
+            usuarios=eligible_users,
+        )
+        selected_user_ids = [str(user.pk) for user in selected_users]
+        return {
+            "title": "Registrar Asistente a Evento",
+            "subtitle": "Filtra y selecciona uno o varios asistentes para pre-registrarlos.",
+            "eventos": Evento.objects.all(),
+            "grupos": (
+                Usuario.objects.exclude(grupo="")
+                .values_list("grupo", flat=True)
+                .distinct()
+                .order_by("grupo")
+            ),
+            "categorias": (
+                Usuario.objects.exclude(categoria__isnull=True)
+                .exclude(categoria="")
+                .values_list("categoria", flat=True)
+                .distinct()
+                .order_by("categoria")
+            ),
+            "filters": filters,
+            "evento_seleccionado": evento,
+            "usuarios": candidates,
+            "usuarios_seleccionados_fuera_filtro": previously_selected_users,
+            "form": form,
+            "selected_user_ids": selected_user_ids,
+            "cancel_url": reverse_lazy("eventos:registro_list"),
+        }
+
+    def get(self, request, *args, **kwargs):
+        return render(
+            request,
+            self.template_name,
+            self.get_context_data(data=request.GET),
+        )
+
+    def post(self, request, *args, **kwargs):
+        filters = self.get_filters(request.POST)
+        evento = self.get_event(filters)
+        eligible_users = self.get_eligible_users(evento)
+        form = RegistroMultipleEventoForm(
+            request.POST,
+            usuarios=eligible_users,
+        )
+        if form.is_valid():
+            evento = form.cleaned_data["evento"]
+            equipo = form.cleaned_data["equipo"].strip() or None
+            registrados = 0
+            with transaction.atomic():
+                for usuario in form.cleaned_data["usuarios"]:
+                    _, created = Registro.objects.get_or_create(
+                        evento=evento,
+                        usuario=usuario,
+                        defaults={"equipo": equipo},
+                    )
+                    registrados += int(created)
+
+            messages.success(
+                request,
+                f"Se registraron {registrados} asistente(s) en «{evento.nombre}».",
+            )
+            query = urlencode(
+                {
+                    "evento": evento.pk,
+                    "grupo": filters["grupo"],
+                    "categoria": filters["categoria"],
+                    "q": filters["q"],
+                }
+            )
+            return redirect(f"{reverse_lazy('eventos:registro_create')}?{query}")
+
+        return render(
+            request,
+            self.template_name,
+            self.get_context_data(data=request.POST, form=form),
+        )
+
+
+class RegistroPlantillaView(PassIdPermissionMixin, View):
+    required_permission = "registro.add_registro_masivo"
+
+    def get(self, request, *args, **kwargs):
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = "Registros"
+        worksheet.append(["evento", "matricula", "equipo"])
+        worksheet.freeze_panes = "A2"
+        worksheet.auto_filter.ref = "A1:C1"
+        worksheet.column_dimensions["A"].width = 14
+        worksheet.column_dimensions["B"].width = 24
+        worksheet.column_dimensions["C"].width = 32
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="27272A")
+
+        event_catalog = workbook.create_sheet("Eventos disponibles")
+        event_catalog.append(["nombre", "fecha_hora", "lugar"])
+        for evento in Evento.objects.order_by("pk"):
+            event_catalog.append([
+                evento.nombre,
+                timezone.localtime(evento.fecha_hora).strftime("%d/%m/%Y %H:%M")
+                if timezone.is_aware(evento.fecha_hora)
+                else evento.fecha_hora.strftime("%d/%m/%Y %H:%M"),
+                evento.lugar or "",
+            ])
+        event_catalog.freeze_panes = "A2"
+        event_catalog.auto_filter.ref = f"A1:C{event_catalog.max_row}"
+        event_catalog.column_dimensions["A"].width = 40
+        event_catalog.column_dimensions["B"].width = 22
+        event_catalog.column_dimensions["C"].width = 32
+        for cell in event_catalog[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="27272A")
+
+        instructions = workbook.create_sheet("Instrucciones")
+        instructions.append(["Columna", "Instrucción"])
+        instructions.append(["evento", "Obligatoria. Escribe el nombre del evento como aparece en Eventos disponibles. No distingue mayúsculas, acentos ni espacios repetidos."])
+        instructions.append(["matricula", "Obligatoria. Debe existir en PassID; mantenla como texto para conservar ceros iniciales."])
+        instructions.append(["equipo", "Opcional. Se asignará al pre-registro de esa persona."])
+        for cell in instructions[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="27272A")
+        instructions.column_dimensions["A"].width = 20
+        instructions.column_dimensions["B"].width = 100
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = (
+            'attachment; filename="plantilla_registros_eventos.xlsx"'
+        )
+        workbook.save(response)
+        return response
+
+
+class RegistroImportView(PassIdPermissionMixin, FormView):
+    form_class = RegistroImportForm
+    template_name = "eventos/registro_import.html"
+    required_permission = "registro.add_registro_masivo"
+
     def form_valid(self, form):
-        messages.success(self.request, f"Pre-registro de {form.instance.usuario} al evento realizado con éxito.")
-        return super().form_valid(form)
+        try:
+            report = import_registros(form.cleaned_data["archivo"])
+        except ValidationError as error:
+            form.add_error("archivo", error)
+            return self.form_invalid(form)
+        return self.render_to_response(
+            self.get_context_data(form=form, report=report)
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["title"] = "Registrar Asistente a Evento"
-        context["subtitle"] = "Selecciona el evento y el usuario o equipo participante"
-        context["button_text"] = "Completar Registro"
-        context["cancel_url"] = reverse_lazy("eventos:registro_list")
+        context.setdefault("title", "Carga masiva de registros de eventos")
+        context["cancel_url"] = reverse_lazy("eventos:registro_create")
         return context
 
 

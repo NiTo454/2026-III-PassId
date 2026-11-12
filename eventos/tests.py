@@ -1,11 +1,15 @@
+import csv
+from io import BytesIO, StringIO
+
 from django.core import signing
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 import json
 
 from eventos.models import Evento, Registro, Asistencia
-from usuarios.models import Permiso, Usuario
+from usuarios.models import Perfil, Permiso, Usuario
 
 
 class EventosScannerTests(TestCase):
@@ -350,3 +354,379 @@ class EventosScannerTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/png")
         self.assertTrue(len(response.content) > 0)
+
+    def _grant_registro_permission(self):
+        permission, _ = Permiso.objects.get_or_create(
+            codename="add_registro",
+            defaults={"tipo": "registro", "nombre": "Registrar asistentes a eventos"},
+        )
+        bulk_permission, _ = Permiso.objects.get_or_create(
+            codename="add_registro_masivo",
+            defaults={
+                "tipo": "registro",
+                "nombre": "Importar registros de eventos de forma masiva",
+            },
+        )
+        self.staff_user.permisos_directos.add(permission, bulk_permission)
+        self.client.force_login(self.staff_user)
+
+    def test_bulk_registration_permission_is_migrated_to_admin_profile(self):
+        permission = Permiso.objects.get(
+            tipo="registro",
+            codename="add_registro_masivo",
+        )
+        admin = Perfil.objects.get(nombre__iexact="admin")
+
+        self.assertTrue(admin.permisos.filter(pk=permission.pk).exists())
+
+    def test_bulk_import_requires_its_specific_permission(self):
+        create_permission, _ = Permiso.objects.get_or_create(
+            codename="add_registro",
+            defaults={"tipo": "registro", "nombre": "Agregar registro a evento"},
+        )
+        self.staff_user.permisos_directos.add(create_permission)
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(reverse("eventos:registro_create"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, reverse("eventos:registro_import"))
+        self.assertEqual(
+            self.client.get(reverse("eventos:registro_import")).url,
+            reverse("home"),
+        )
+        self.assertEqual(
+            self.client.get(reverse("eventos:registro_template")).url,
+            reverse("home"),
+        )
+
+    def _grant_registro_view_permission(self):
+        permission, _ = Permiso.objects.get_or_create(
+            codename="view_registro",
+            defaults={"tipo": "registro", "nombre": "Consultar registros de eventos"},
+        )
+        self.staff_user.permisos_directos.add(permission)
+        self.client.force_login(self.staff_user)
+
+    def _create_candidate(self, *, username, name, matricula, grupo, categoria):
+        return Usuario.objects.create_user(
+            username=username,
+            email=f"{username}@example.com",
+            password="test-password",
+            nombre=name,
+            matricula=matricula,
+            grupo=grupo,
+            categoria=categoria,
+            activo=True,
+        )
+
+    def make_registration_csv(self, rows, name="registros.csv"):
+        content = StringIO()
+        writer = csv.writer(content)
+        writer.writerow(["evento", "matricula", "equipo"])
+        writer.writerows(rows)
+        return SimpleUploadedFile(name, content.getvalue().encode("utf-8"))
+
+    def test_registration_create_shows_template_and_import_buttons(self):
+        self._grant_registro_permission()
+        response = self.client.get(
+            reverse("eventos:registro_create"),
+            {"evento": self.evento_con_registro.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("eventos:registro_template"))
+        self.assertContains(response, reverse("eventos:registro_import"))
+
+    def test_registration_selection_is_restored_after_changing_search(self):
+        self._grant_registro_permission()
+        selected = self._create_candidate(
+            username="asistente_seleccionado",
+            name="Ana Seleccionada",
+            matricula="SELECCION-001",
+            grupo="TIC-71",
+            categoria="Estudiante",
+        )
+        current_result = self._create_candidate(
+            username="asistente_busqueda_actual",
+            name="Bruno Actual",
+            matricula="SELECCION-002",
+            grupo="TIC-72",
+            categoria="Estudiante",
+        )
+        response = self.client.get(
+            reverse("eventos:registro_create"),
+            {
+                "evento": self.evento_con_registro.pk,
+                "grupo": current_result.grupo,
+                "q": current_result.nombre,
+                "seleccionados": [str(selected.pk)],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context["usuarios_seleccionados_fuera_filtro"]),
+            [selected],
+        )
+        self.assertContains(response, f'value="{selected.pk}" checked')
+        self.assertContains(response, current_result.nombre)
+
+    def test_registration_post_saves_selected_users_across_different_filters(self):
+        self._grant_registro_permission()
+        selected = [
+            self._create_candidate(
+                username="asistente_filtro_a",
+                name="Ana Grupo A",
+                matricula="MULTIFILTER-001",
+                grupo="TIC-71",
+                categoria="Estudiante",
+            ),
+            self._create_candidate(
+                username="asistente_filtro_b",
+                name="Bruno Grupo B",
+                matricula="MULTIFILTER-002",
+                grupo="TIC-72",
+                categoria="Estudiante",
+            ),
+        ]
+        response = self.client.post(
+            reverse("eventos:registro_create"),
+            {
+                "evento": self.evento_con_registro.pk,
+                "grupo": selected[1].grupo,
+                "q": selected[1].nombre,
+                "usuarios": [str(usuario.pk) for usuario in selected],
+                "equipo": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            Registro.objects.filter(
+                evento=self.evento_con_registro,
+                usuario__in=selected,
+            ).count(),
+            2,
+        )
+
+    def test_registration_list_filters_by_event_group_category_and_name(self):
+        self._grant_registro_view_permission()
+        matching = self._create_candidate(
+            username="registro_coincidente",
+            name="Ana Coincidente",
+            matricula="LISTFILTER-001",
+            grupo="TIC-71",
+            categoria="Estudiante",
+        )
+        excluded = self._create_candidate(
+            username="registro_excluido",
+            name="Bruno Excluido",
+            matricula="LISTFILTER-002",
+            grupo="TIC-72",
+            categoria="Docente",
+        )
+        Registro.objects.create(evento=self.evento_con_registro, usuario=matching)
+        Registro.objects.create(evento=self.evento_con_registro, usuario=excluded)
+
+        response = self.client.get(
+            reverse("eventos:registro_list"),
+            {
+                "evento": self.evento_con_registro.pk,
+                "grupo": "TIC-71",
+                "categoria": "Estudiante",
+                "q": "LISTFILTER-001",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, matching.nombre)
+        self.assertNotContains(response, excluded.nombre)
+        self.assertContains(response, 'name="evento"')
+        self.assertContains(response, 'name="grupo"')
+        self.assertContains(response, 'name="categoria"')
+
+    def test_registration_list_pagination_preserves_active_filters(self):
+        self._grant_registro_view_permission()
+        for index in range(11):
+            usuario = self._create_candidate(
+                username=f"registro_paginado_{index}",
+                name=f"Usuario página {index}",
+                matricula=f"PAGE-{index:03d}",
+                grupo="TIC-PAGE",
+                categoria="Estudiante",
+            )
+            Registro.objects.create(
+                evento=self.evento_con_registro,
+                usuario=usuario,
+            )
+
+        response = self.client.get(
+            reverse("eventos:registro_list"),
+            {
+                "evento": self.evento_con_registro.pk,
+                "grupo": "TIC-PAGE",
+                "categoria": "Estudiante",
+                "q": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_paginated"])
+        self.assertEqual(
+            response.context["pagination_query"],
+            f"evento={self.evento_con_registro.pk}&grupo=TIC-PAGE&categoria=Estudiante",
+        )
+
+    def test_registration_template_download_has_expected_columns(self):
+        from openpyxl import load_workbook
+
+        self._grant_registro_permission()
+        response = self.client.get(reverse("eventos:registro_template"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn("plantilla_registros_eventos.xlsx", response["Content-Disposition"])
+        workbook = load_workbook(BytesIO(response.content), read_only=True, data_only=True)
+        self.assertEqual(
+            list(workbook["Registros"].values)[0],
+            ("evento", "matricula", "equipo"),
+        )
+        self.assertIn("Eventos disponibles", workbook.sheetnames)
+        self.assertIn("Instrucciones", workbook.sheetnames)
+        event_rows = list(workbook["Eventos disponibles"].values)
+        self.assertIn(
+            self.evento_con_registro.nombre,
+            [row[0] for row in event_rows[1:]],
+        )
+        workbook.close()
+
+    def test_import_registers_users_from_xlsx(self):
+        from openpyxl import Workbook
+
+        self._grant_registro_permission()
+        evento = Evento.objects.create(
+            nombre="Exposición Técnica",
+            fecha_hora=timezone.now() + timezone.timedelta(days=3),
+            lugar="Auditorio 2",
+        )
+        candidate = self._create_candidate(
+            username="asistente_importado_excel",
+            name="Asistente Excel",
+            matricula="IMPORT-EXCEL",
+            grupo="TIC-71",
+            categoria="Estudiante",
+        )
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.append(["evento", "matricula", "equipo"])
+        worksheet.append([
+            "  EXPOSICION   TECNICA ",
+            candidate.matricula,
+            "Equipo Excel",
+        ])
+        content = BytesIO()
+        workbook.save(content)
+        response = self.client.post(
+            reverse("eventos:registro_import"),
+            {
+                "archivo": SimpleUploadedFile(
+                    "registros.xlsx",
+                    content.getvalue(),
+                    content_type=(
+                        "application/vnd.openxmlformats-officedocument."
+                        "spreadsheetml.sheet"
+                    ),
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["report"]["created_count"], 1)
+        self.assertEqual(
+            Registro.objects.get(
+                evento=evento,
+                usuario=candidate,
+            ).equipo,
+            "Equipo Excel",
+        )
+
+    def test_import_registers_multiple_users_and_skips_existing_records(self):
+        self._grant_registro_permission()
+        asistentes = [
+            self._create_candidate(
+                username=f"asistente_importado_{index}",
+                name=f"Asistente importado {index}",
+                matricula=f"IMPORT-{index}",
+                grupo="TIC-71",
+                categoria="Estudiante",
+            )
+            for index in range(1, 3)
+        ]
+        response = self.client.post(
+            reverse("eventos:registro_import"),
+            {
+                "archivo": self.make_registration_csv([
+                    [self.evento_con_registro.nombre, asistentes[0].matricula, "Equipo A"],
+                    [self.evento_libre.nombre, asistentes[1].matricula, ""],
+                    [self.evento_con_registro.nombre, self.asistente.matricula, "Los Linces"],
+                ]),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        report = response.context["report"]
+        self.assertEqual(report["created_count"], 2)
+        self.assertEqual(report["skipped_count"], 1)
+        self.assertEqual(report["error_count"], 0)
+        self.assertEqual(
+            Registro.objects.get(
+                evento=self.evento_con_registro,
+                usuario=asistentes[0],
+            ).equipo,
+            "Equipo A",
+        )
+        self.assertTrue(
+            Registro.objects.filter(
+                evento=self.evento_libre,
+                usuario=asistentes[1],
+            ).exists()
+        )
+
+    def test_import_reports_unknown_repeated_and_ambiguous_values(self):
+        self._grant_registro_permission()
+        Evento.objects.create(
+            nombre="HÁCKATHON PASSID 2026",
+            fecha_hora=timezone.now() + timezone.timedelta(days=4),
+            lugar="Auditorio 3",
+        )
+        candidate = self._create_candidate(
+            username="asistente_importado_valido",
+            name="Asistente válido",
+            matricula="IMPORT-VALIDO",
+            grupo="TIC-71",
+            categoria="Estudiante",
+        )
+        response = self.client.post(
+            reverse("eventos:registro_import"),
+            {
+                "archivo": self.make_registration_csv([
+                    [self.evento_libre.nombre, candidate.matricula, ""],
+                    [self.evento_libre.nombre, "NO-EXISTE", ""],
+                    [self.evento_libre.nombre, candidate.matricula, ""],
+                    ["EVENTO NO REGISTRADO", candidate.matricula, ""],
+                    ["hackathon   passid 2026", candidate.matricula, ""],
+                ]),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        report = response.context["report"]
+        self.assertEqual(report["created_count"], 1)
+        self.assertEqual(report["error_count"], 4)
+        self.assertContains(response, "matricula no encontrada")
+        self.assertContains(response, "evento y matricula repetidos en fila 2")
+        self.assertContains(response, "evento no encontrado por nombre")
+        self.assertContains(response, "nombre de evento ambiguo")
