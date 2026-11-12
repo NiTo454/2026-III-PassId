@@ -183,9 +183,9 @@
                 {% endif %}
                 <form method="post" action="{% url 'autenticacion:logout' %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn-logout" title="Cerrar sesión">
+                    <button type="submit" class="btn-logout" title="Cerrar sesión" aria-label="Cerrar sesión">
                         <i class="fa-solid fa-right-from-bracket"></i>
-                        <span class="nav-label">Salir</span>
+                        <span class="nav-label">Cerrar sesión</span>
                     </button>
                 </form>
             </div>
@@ -194,7 +194,7 @@
 
         {% else %}
         <div class="nav-links">
-            <a href="{% url 'autenticacion:login' %}" class="nav-link">
+            <a href="{% url 'autenticacion:login' %}" class="nav-link nav-login-link">
                 <i class="fa-solid fa-arrow-right-to-bracket"></i> Iniciar Sesión
             </a>
         </div>

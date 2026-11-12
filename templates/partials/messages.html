@@ -1,8 +1,8 @@
 {% if messages %}
 <div class="messages">
     {% for message in messages %}
-    <div class="alert alert-{% if message.tags == 'error' %}error{% else %}success{% endif %}">
-        <i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+    <div class="alert alert-{% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% elif message.tags == 'info' %}info{% else %}success{% endif %}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
+        <i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark{% elif message.tags == 'warning' %}fa-triangle-exclamation{% elif message.tags == 'info' %}fa-circle-info{% else %}fa-circle-check{% endif %}" aria-hidden="true"></i>
         <span>{{ message }}</span>
     </div>
     {% endfor %}

@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if auth_mode == "register" %}Crear cuenta{% elif auth_mode == "reset" %}Recuperar contraseña{% else %}Iniciar sesión{% endif %} | PassID{% endblock %}
+
+{% block content %}
+<section class="auth-page" aria-label="Acceso a PassID">
+    <div class="auth-portal" data-auth-mode="{{ auth_mode }}">
+        <aside class="auth-welcome-panel">
+            <div class="auth-welcome-content" data-auth-welcome="login" {% if auth_mode != "login" %}hidden{% endif %}>
+                <p class="auth-eyebrow">PASSID · UTVAM</p>
+                <h1>Qué bueno verte</h1>
+                <p>Ingresa a tu espacio institucional para consultar tus actividades y servicios.</p>
+                <span class="auth-welcome-footnote">
+                    <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                    Tu cuenta institucional, en un solo lugar.
+                </span>
+            </div>
+            <div class="auth-welcome-content" data-auth-welcome="register" {% if auth_mode != "register" %}hidden{% endif %}>
+                <p class="auth-eyebrow">COMIENZA AQUÍ</p>
+                <h1>Crea tu cuenta PassID.</h1>
+                <p>Regístrate con tus datos institucionales. Solo te tomará unos minutos.</p>
+                <span class="auth-welcome-footnote">
+                    <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                    Tus datos se usan para crear tu cuenta.
+                </span>
+            </div>
+            <div class="auth-welcome-content" data-auth-welcome="reset" {% if auth_mode != "reset" %}hidden{% endif %}>
+                <p class="auth-eyebrow">RECUPERACIÓN DE CUENTA</p>
+                <h1>Volver a entrar es sencillo.</h1>
+                <p>Escribe tu correo institucional o matrícula y te enviaremos los pasos para recuperar el acceso.</p>
+                <span class="auth-welcome-footnote">
+                    <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                    El enlace de recuperación vence en 24 horas.
+                </span>
+            </div>
+        </aside>
+
+        <div class="auth-forms-panel">
+            <div class="auth-forms-content">
+                <nav class="auth-mode-tabs" aria-label="Opciones de acceso">
+                    <a href="{% url 'autenticacion:login' %}" data-auth-link="login" {% if auth_mode == "login" %}aria-current="page"{% endif %}>Iniciar sesión</a>
+                    <a href="{% url 'autenticacion:registro' %}" data-auth-link="register" {% if auth_mode == "register" %}aria-current="page"{% endif %}>Crear cuenta</a>
+                </nav>
+
+                <section class="auth-form-view" data-auth-view="login" aria-labelledby="login-title" {% if auth_mode != "login" %}hidden{% endif %}>
+                    <header class="auth-heading">
+                        <p class="auth-eyebrow">INICIO DE SESIÓN</p>
+                        <h2 class="form-title" id="login-title">Iniciar sesión</h2>
+                        <p class="auth-description">Usa tu usuario o correo institucional.</p>
+                    </header>
+
+                    {% if login_form.non_field_errors %}
+                    <div class="alert alert-error auth-form-alert" role="alert">
+                        <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                        <div>{% for error in login_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'autenticacion:login' %}" class="auth-form">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label class="form-label" for="{{ login_form.username.id_for_label }}">Usuario o correo institucional</label>
+                            {{ login_form.username }}
+                            {% if login_form.username.errors %}
+                                {% for error in login_form.username.errors %}<p class="auth-field-error" id="username-help" role="alert">{{ error }}</p>{% endfor %}
+                            {% else %}
+                            <p class="auth-help-text" id="username-help">Puedes usar cualquiera de los dos.</p>
+                            {% endif %}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="{{ login_form.password.id_for_label }}">Contraseña</label>
+                            <div class="auth-password-field">
+                                {{ login_form.password }}
+                                <button class="auth-password-toggle" type="button" data-password-toggle aria-label="Mostrar contraseña" aria-pressed="false" aria-controls="{{ login_form.password.id_for_label }}">
+                                    <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            {% for error in login_form.password.errors %}<p class="auth-field-error" role="alert">{{ error }}</p>{% endfor %}
+                        </div>
+                        <p class="auth-forgot-row">
+                            <a class="auth-forgot-link" href="{% url 'usuarios:password_reset_request' %}" data-auth-reset-link>¿Olvidaste tu contraseña?</a>
+                        </p>
+                        <button type="submit" class="btn-submit auth-submit">
+                            <span>Iniciar sesión</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                        </button>
+                    </form>
+                </section>
+
+                <section class="auth-form-view" data-auth-view="register" aria-labelledby="register-title" {% if auth_mode != "register" %}hidden{% endif %}>
+                    <header class="auth-heading">
+                        <p class="auth-eyebrow">NUEVA CUENTA</p>
+                        <h2 class="form-title" id="register-title">Crear cuenta</h2>
+                        <p class="auth-description">Completa tus datos para comenzar.</p>
+                    </header>
+
+                    {% if registration_form.non_field_errors %}
+                    <div class="alert alert-error auth-form-alert" role="alert">
+                        <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                        <div>{% for error in registration_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'autenticacion:registro' %}" class="auth-form">
+                        {% csrf_token %}
+                        <div class="auth-form-grid">
+                            {% for field in registration_form %}
+                            <div class="form-group">
+                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                {% if field.name == 'password1' or field.name == 'password2' %}
+                                <div class="auth-password-field">
+                                    {{ field }}
+                                    <button class="auth-password-toggle" type="button" data-password-toggle aria-label="Mostrar contraseña" aria-pressed="false" aria-controls="{{ field.id_for_label }}">
+                                        <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                                {% else %}
+                                {{ field }}
+                                {% endif %}
+                                {% if field.name == 'nombre_completo' %}<p class="auth-field-note" id="full-name-help">Escribe tu nombre completo con espacios. Las últimas dos palabras se guardarán como apellidos; si un apellido tiene varias palabras, únelo con guiones.</p>
+                                {% elif field.name == 'matricula' %}<p class="auth-field-note">Escríbela como aparece en tu credencial.</p>
+                                {% elif field.name == 'username' %}<p class="auth-field-note">Con este nombre podrás identificar tu cuenta.</p>
+                                {% elif field.name == 'password1' %}<p class="auth-field-note">Elige una contraseña que solo tú conozcas.</p>
+                                {% endif %}
+                                {% for error in field.errors %}<p class="auth-field-error" role="alert">{{ error }}</p>{% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="submit" class="btn-submit auth-submit">
+                            <span>Crear mi cuenta</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                        </button>
+                    </form>
+                </section>
+
+                <section class="auth-form-view" data-auth-view="reset" aria-labelledby="reset-title" {% if auth_mode != "reset" %}hidden{% endif %}>
+                    <header class="auth-heading">
+                        <p class="auth-eyebrow">RECUPERACIÓN DE CUENTA</p>
+                        <h2 class="form-title" id="reset-title">Recupera tu contraseña</h2>
+                        <p class="auth-description">Te enviaremos instrucciones si encontramos tu cuenta.</p>
+                    </header>
+
+                    <form method="post" action="{% url 'usuarios:password_reset_request' %}" class="auth-form">
+                        {% csrf_token %}
+                        {% for field in password_reset_form %}
+                        <div class="form-group">
+                            <label class="form-label" for="{{ field.id_for_label }}">Correo institucional o matrícula</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                {% for error in field.errors %}<p class="auth-field-error" role="alert">{{ error }}</p>{% endfor %}
+                            {% else %}
+                            <p class="auth-help-text">Usa el dato asociado a tu cuenta PassID.</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        <button type="submit" class="btn-submit auth-submit">
+                            <span>Enviar instrucciones</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                        </button>
+                    </form>
+                </section>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/auth.js' %}" defer></script>
+{% endblock %}
