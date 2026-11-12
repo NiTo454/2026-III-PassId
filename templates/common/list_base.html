@@ -39,13 +39,13 @@
     {% if is_paginated %}
     <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem;">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action" style="padding: 0.5rem 1rem; border-radius: 6px;">&laquo; Anterior</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if pagination_query %}&{{ pagination_query }}{% elif query %}&q={{ query|urlencode }}{% endif %}" class="btn-action" style="padding: 0.5rem 1rem; border-radius: 6px;">&laquo; Anterior</a>
         {% endif %}
         <span style="color: var(--text-muted); align-self: center; font-size: 0.9rem;">
             Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
         </span>
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action" style="padding: 0.5rem 1rem; border-radius: 6px;">Siguiente &raquo;</a>
+        <a href="?page={{ page_obj.next_page_number }}{% if pagination_query %}&{{ pagination_query }}{% elif query %}&q={{ query|urlencode }}{% endif %}" class="btn-action" style="padding: 0.5rem 1rem; border-radius: 6px;">Siguiente &raquo;</a>
         {% endif %}
     </div>
     {% endif %}

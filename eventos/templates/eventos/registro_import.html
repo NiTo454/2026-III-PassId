@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - PassID{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="glass-card">
+        <h1 class="form-title">{{ title }}</h1>
+        <div class="form-intro">
+            <p class="page-subtitle">
+                Importa un archivo CSV o Excel con una fila por alumno y evento. Incluye
+                <code>evento</code>, <code>matricula</code> y <code>equipo</code> (opcional).
+            </p>
+            <p class="page-subtitle">
+                Escribe el nombre del evento como aparece en la hoja <strong>Eventos disponibles</strong>.
+                La búsqueda ignora mayúsculas, acentos y espacios repetidos. Los registros existentes se omitirán.
+                En Excel, conserva las matrículas como texto para mantener ceros iniciales.
+            </p>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="spaced-form">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}
+                <p class="field-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+            <p class="field-error">{{ error }}</p>
+            {% endfor %}
+            <div class="btn-group">
+                <a href="{{ cancel_url }}" class="btn-cancel">Regresar</a>
+                <button type="submit" class="btn-submit">
+                    <i class="fa-solid fa-file-import" aria-hidden="true"></i> Procesar archivo
+                </button>
+            </div>
+        </form>
+
+        {% if report %}
+        <section class="import-report" aria-live="polite">
+            <h2 class="card-section-title">Resultado de la importación</h2>
+            <div class="report-summary">
+                <span class="badge-status badge-active">{{ report.created_count }} registrados</span>
+                <span class="badge-role">{{ report.skipped_count }} ya existían</span>
+                <span class="badge-status {% if report.error_count %}badge-inactive{% else %}badge-active{% endif %}">
+                    {{ report.error_count }} errores
+                </span>
+            </div>
+            {% if report.errors %}
+            <h3 class="form-label">Detalle por fila</h3>
+            <ul class="error-list">
+                {% for error in report.errors %}
+                <li>Fila {{ error.row }}: {{ error.detail }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </section>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
