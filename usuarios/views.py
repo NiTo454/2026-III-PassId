@@ -362,14 +362,31 @@ class UsuarioListView(PassIdPermissionMixin, ListView):
     paginate_by = 10
     required_permission = "usuario.view_usuario"
 
+    def get_filters(self):
+        return {
+            "grupo": self.request.GET.get("grupo", "").strip(),
+            "categoria": self.request.GET.get("categoria", "").strip(),
+            "activo": self.request.GET.get("activo", "").strip(),
+            "q": self.request.GET.get("q", "").strip(),
+        }
+
     def get_queryset(self):
+        self.filters = self.get_filters()
         queryset = Usuario.objects.prefetch_related("perfiles").all()
-        query = self.request.GET.get("q", "").strip()
+        if self.filters["grupo"]:
+            queryset = queryset.filter(grupo=self.filters["grupo"])
+        if self.filters["categoria"]:
+            queryset = queryset.filter(categoria=self.filters["categoria"])
+        if self.filters["activo"] in {"1", "0"}:
+            queryset = queryset.filter(activo=self.filters["activo"] == "1")
+
+        query = self.filters["q"]
         if query:
             queryset = queryset.filter(
                 Q(username__icontains=query) |
                 Q(nombre__icontains=query) |
                 Q(apaterno__icontains=query) |
+                Q(amaterno__icontains=query) |
                 Q(email__icontains=query) |
                 Q(matricula__icontains=query)
             )
@@ -377,7 +394,29 @@ class UsuarioListView(PassIdPermissionMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
+        filters = getattr(self, "filters", self.get_filters())
+        context["query"] = filters["q"]
+        context["filters"] = filters
+        context["grupos"] = (
+            Usuario.objects.exclude(grupo="")
+            .values_list("grupo", flat=True)
+            .distinct()
+            .order_by("grupo")
+        )
+        context["categorias"] = (
+            Usuario.objects.exclude(categoria__isnull=True)
+            .exclude(categoria="")
+            .values_list("categoria", flat=True)
+            .distinct()
+            .order_by("categoria")
+        )
+        context["pagination_query"] = urlencode(
+            {
+                key: value
+                for key, value in filters.items()
+                if value
+            }
+        )
         context["total_count"] = self.get_queryset().count()
         return context
 
@@ -425,17 +464,32 @@ class UsuarioUpdateView(PassIdPermissionMixin, UpdateView):
     model = Usuario
     form_class = UsuarioUpdateForm
     template_name = "usuarios/usuario_form.html"
-    success_url = reverse_lazy("usuarios:usuario_list")
     required_permission = "usuario.change_usuario"
 
     def form_valid(self, form):
         messages.success(self.request, f"Usuario '{form.instance.username}' actualizado correctamente.")
         return super().form_valid(form)
 
+    def get_success_url(self):
+        return f"{reverse('usuarios:usuario_update', kwargs={'pk': self.object.pk})}#messages"
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["title"] = f"Editar Usuario: {self.object.username}"
         context["button_text"] = "Actualizar Usuario"
+        permission_values = context["form"]["permisos_directos"].value() or []
+        context["permisos_directos_seleccionados"] = [
+            str(permission_id) for permission_id in permission_values
+        ]
+        context["permisos"] = Permiso.objects.order_by(
+            "tipo",
+            "codename",
+        )
+        context["tipos_permisos"] = (
+            Permiso.objects.order_by()
+            .values_list("tipo", flat=True)
+            .distinct()
+        )
         return context
 
 

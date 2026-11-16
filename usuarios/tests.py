@@ -65,6 +65,151 @@ class UsuarioUpdatePasswordTests(TestCase):
         self.assertTrue(self.usuario.check_password("password-nuevo"))
         self.assertFalse(self.usuario.check_password("password-original"))
 
+    def test_update_form_assigns_direct_permissions_without_a_profile(self):
+        permission = Permiso.objects.create(
+            tipo="usuario_prueba",
+            codename="permiso_directo_prueba",
+            nombre="Permiso directo de prueba",
+        )
+        data = self.form_data("")
+        data["permisos_directos"] = [str(permission.pk)]
+        form = UsuarioUpdateForm(data=data, instance=self.usuario)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+
+        self.usuario.refresh_from_db()
+        self.assertTrue(
+            self.usuario.permisos_directos.filter(pk=permission.pk).exists()
+        )
+        self.assertFalse(self.usuario.perfiles.exists())
+
+    def test_update_form_removes_unchecked_direct_permissions(self):
+        permission_to_remove = Permiso.objects.create(
+            tipo="usuario_prueba",
+            codename="permiso_directo_quitar",
+            nombre="Permiso directo para quitar",
+        )
+        permission_to_keep = Permiso.objects.create(
+            tipo="usuario_prueba",
+            codename="permiso_directo_conservar",
+            nombre="Permiso directo para conservar",
+        )
+        self.usuario.permisos_directos.add(
+            permission_to_remove,
+            permission_to_keep,
+        )
+        data = self.form_data("")
+        data["permisos_directos"] = [str(permission_to_keep.pk)]
+        form = UsuarioUpdateForm(data=data, instance=self.usuario)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+
+        self.usuario.refresh_from_db()
+        self.assertFalse(
+            self.usuario.permisos_directos.filter(
+                pk=permission_to_remove.pk
+            ).exists()
+        )
+        self.assertTrue(
+            self.usuario.permisos_directos.filter(
+                pk=permission_to_keep.pk
+            ).exists()
+        )
+
+    def test_successful_update_returns_to_edit_page_with_message_at_top(self):
+        change_permission, _ = Permiso.objects.get_or_create(
+            codename="change_usuario",
+            defaults={"tipo": "usuario", "nombre": "Cambiar usuario"},
+        )
+        self.usuario.permisos_directos.add(change_permission)
+        self.client.force_login(self.usuario)
+        data = self.form_data("")
+        data["nombre"] = "Nombre actualizado"
+        data["permisos_directos"] = [str(change_permission.pk)]
+        edit_url = reverse(
+            "usuarios:usuario_update",
+            kwargs={"pk": self.usuario.pk},
+        )
+
+        response = self.client.post(edit_url, data, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.redirect_chain,
+            [(f"{edit_url}#messages", 302)],
+        )
+        self.assertContains(response, 'id="messages"')
+        self.assertContains(response, "actualizado correctamente.")
+
+    def test_edit_user_page_shows_filterable_direct_permissions_table(self):
+        permission = Permiso.objects.create(
+            tipo="asistencia_prueba",
+            codename="permiso_directo_asignado",
+            nombre="Permiso directo ya asignado",
+        )
+        available_permission = Permiso.objects.create(
+            tipo="asistencia_prueba",
+            codename="permiso_directo_disponible",
+            nombre="Permiso directo disponible",
+        )
+        change_permission, _ = Permiso.objects.get_or_create(
+            codename="change_usuario",
+            defaults={"tipo": "usuario", "nombre": "Cambiar usuario"},
+        )
+        self.usuario.permisos_directos.add(permission, change_permission)
+        self.client.force_login(self.usuario)
+
+        response = self.client.get(
+            reverse("usuarios:usuario_update", kwargs={"pk": self.usuario.pk})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="filter-direct-permission-type"')
+        self.assertContains(response, 'id="filter-direct-permission-query"')
+        self.assertContains(response, 'id="apply-direct-permission-filters"')
+        self.assertContains(response, available_permission.codename)
+        self.assertContains(response, permission.codename)
+        self.assertRegex(
+            response.content.decode(),
+            rf'name="permisos_directos"\s+value="{permission.pk}"\s+'
+            r'class="direct-permission-checkbox"\s+checked',
+        )
+        self.assertContains(response, 'id="direct-permission-pagination"')
+
+    def test_edit_user_page_shows_all_direct_permissions_and_paginates_by_six(self):
+        change_permission, _ = Permiso.objects.get_or_create(
+            codename="change_usuario",
+            defaults={"tipo": "usuario", "nombre": "Cambiar usuario"},
+        )
+        self.usuario.permisos_directos.add(change_permission)
+        for index in range(11):
+            Permiso.objects.create(
+                tipo="paginacion_prueba",
+                codename=f"permiso_pagina_{index:02}",
+                nombre=f"Permiso página {index}",
+            )
+        self.client.force_login(self.usuario)
+
+        response = self.client.get(
+            reverse("usuarios:usuario_update", kwargs={"pk": self.usuario.pk})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["permisos"].filter(
+                codename__startswith="permiso_pagina_"
+            ).count(),
+            11,
+        )
+        self.assertIn(
+            change_permission,
+            response.context["permisos"],
+        )
+        self.assertContains(response, 'id="direct-permission-next"')
+        self.assertContains(response, "/static/js/usuario-permisos.js")
+
 
 class PerfilLecturaTests(TestCase):
     @classmethod
@@ -140,6 +285,48 @@ class PerfilLecturaTests(TestCase):
         self.assertEqual(
             [permission.pk for permission in response.context["permisos"]],
             [first.pk, second.pk],
+        )
+
+    def test_user_list_filters_by_group_category_status_and_search(self):
+        matching = Usuario.objects.create_user(
+            username="usuario_filtro_activo",
+            email="usuario-filtro-activo@example.invalid",
+            password="test-password",
+            nombre="Ana Coincidente",
+            matricula="USERFILTER-001",
+            grupo="FILTRO-A",
+            categoria="Estudiante",
+            whatsapp="5550000001",
+            activo=True,
+        )
+        excluded = Usuario.objects.create_user(
+            username="usuario_filtro_inactivo",
+            email="usuario-filtro-inactivo@example.invalid",
+            password="test-password",
+            nombre="Ana Coincidente",
+            matricula="USERFILTER-002",
+            grupo="FILTRO-B",
+            categoria="Docente",
+            whatsapp="5550000002",
+            activo=False,
+        )
+
+        response = self.client.get(
+            reverse("usuarios:usuario_list"),
+            {
+                "grupo": matching.grupo,
+                "categoria": matching.categoria,
+                "activo": "1",
+                "q": matching.matricula,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, matching.username)
+        self.assertNotContains(response, excluded.username)
+        self.assertEqual(
+            response.context["pagination_query"],
+            "grupo=FILTRO-A&categoria=Estudiante&activo=1&q=USERFILTER-001",
         )
 
     def test_migration_does_not_create_a_user_account(self):

@@ -121,6 +121,12 @@ class UsuarioUpdateForm(forms.ModelForm):
         required=False,
         label="Perfiles / Roles"
     )
+    permisos_directos = forms.ModelMultipleChoiceField(
+        queryset=Permiso.objects.all(),
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        required=False,
+        label="Permisos directos"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -130,7 +136,8 @@ class UsuarioUpdateForm(forms.ModelForm):
         model = Usuario
         fields = [
             "username", "email", "password", "nombre", "apaterno", "amaterno",
-            "categoria", "whatsapp", "grupo", "matricula", "activo", "is_superuser", "perfiles"
+            "categoria", "whatsapp", "grupo", "matricula", "activo", "is_superuser",
+            "perfiles", "permisos_directos"
         ]
         labels = {
             "username": "Nombre de usuario",
