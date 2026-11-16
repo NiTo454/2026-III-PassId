@@ -6,7 +6,7 @@
 <div class="form-container">
     <div class="glass-card">
         <h1 class="form-title">{{ title }}</h1>
-        <p style="color: var(--text-muted); margin-bottom: 2rem;">Completa los datos de la cuenta de usuario.</p>
+        <p class="page-subtitle form-group">Completa los datos de la cuenta de usuario.</p>
 
         <form method="post">
             {% csrf_token %}
@@ -70,7 +70,108 @@
                 </div>
             </div>
 
-            <div class="grid-2" style="margin-top: 1rem;">
+            {% if object %}
+            <section class="form-group" aria-labelledby="direct-permissions-title">
+                <h2 class="form-label" id="direct-permissions-title">{{ form.permisos_directos.label }}</h2>
+
+                <div class="filter-grid filter-grid--embedded">
+                    <div class="form-group">
+                        <label class="form-label" for="filter-direct-permission-type">Tipo / Módulo</label>
+                        <select class="form-control" id="filter-direct-permission-type">
+                            <option value="">— Todos los tipos —</option>
+                            {% for tipo in tipos_permisos %}
+                            <option value="{{ tipo }}">{{ tipo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group filter-search-field">
+                        <label class="form-label" for="filter-direct-permission-query">Código o nombre</label>
+                        <input
+                            type="search"
+                            id="filter-direct-permission-query"
+                            class="form-control"
+                            placeholder="Buscar permiso..."
+                            autocomplete="off"
+                        >
+                    </div>
+                    <button type="button" class="btn-search filter-action" id="apply-direct-permission-filters">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Filtrar
+                    </button>
+                    <button type="button" class="btn-cancel filter-action filter-clear" id="clear-direct-permission-filters">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i> Limpiar
+                    </button>
+                </div>
+
+                {% if form.permisos_directos.errors %}
+                <div class="alert alert-error form-error" role="alert">
+                    {% for error in form.permisos_directos.errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+                {% endif %}
+
+                <section class="selection-panel" id="selected-direct-permissions-panel" hidden>
+                    <h3 class="card-section-title">
+                        Seleccionados en búsquedas anteriores
+                        (<span id="selected-direct-permissions-count">0</span>)
+                    </h3>
+                    <p class="muted-meta">
+                        Se conservarán aunque no aparezcan en los filtros actuales. Desmarca los que quieras quitar.
+                    </p>
+                    <div class="selectable-list" id="selected-direct-permissions-list"></div>
+                </section>
+
+                <div class="selection-toolbar">
+                    <label class="checkbox-item select-all-control">
+                        <input type="checkbox" id="select-all-direct-permissions">
+                        <span>Seleccionar todos los resultados de esta página</span>
+                    </label>
+                    <span class="selection-count" aria-live="polite">
+                        <span id="direct-permission-selection-count">{{ permisos_directos_seleccionados|length }}</span> permisos seleccionados
+                    </span>
+                </div>
+
+                <div class="selectable-list" id="direct-permissions-table">
+                    {% for permiso in permisos %}
+                    <label
+                        class="selectable-item direct-permission-option"
+                        data-permission-module="{{ permiso.tipo }}"
+                        data-permission-search="{{ permiso.codename }} {{ permiso.nombre|default:'' }}"
+                        data-permission-code="{{ permiso.codename }}"
+                        data-permission-name="{{ permiso.nombre|default:'Sin descripción' }}"
+                    >
+                        <input
+                            type="checkbox"
+                            name="permisos_directos"
+                            value="{{ permiso.pk }}"
+                            class="direct-permission-checkbox"
+                            {% if permiso.pk|stringformat:"s" in permisos_directos_seleccionados %}checked{% endif %}
+                        >
+                        <span class="selectable-item-details">
+                            <strong>{{ permiso.nombre|default:"Sin descripción" }}</strong>
+                            <span>
+                                <span class="badge-role">{{ permiso.tipo }}</span>
+                                <span class="metadata-separator">·</span>
+                                <span class="badge-perm">{{ permiso.codename }}</span>
+                            </span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <p class="table-empty" id="direct-permission-empty" hidden>
+                    No hay permisos que coincidan con los filtros.
+                </p>
+                <nav class="pagination" id="direct-permission-pagination" aria-label="Paginación de permisos directos">
+                    <a href="#direct-permission-page-previous" class="btn-action btn-page" id="direct-permission-previous" aria-disabled="true" tabindex="-1">
+                        &laquo; Anterior
+                    </a>
+                    <span class="pagination-info" id="direct-permission-page-info" aria-live="polite"></span>
+                    <a href="#direct-permission-page-next" class="btn-action btn-page" id="direct-permission-next" aria-disabled="true" tabindex="-1">
+                        Siguiente &raquo;
+                    </a>
+                </nav>
+            </section>
+            {% endif %}
+
+            <div class="grid-2 form-group">
                 <label class="checkbox-item">
                     {{ form.activo }} {{ form.activo.label }}
                 </label>
@@ -86,4 +187,11 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if object %}
+{% load static %}
+<script src="{% static 'js/usuario-permisos.js' %}"></script>
+{% endif %}
 {% endblock %}
