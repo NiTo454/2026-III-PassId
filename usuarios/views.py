@@ -1,7 +1,7 @@
 import hashlib
 import secrets
 from datetime import timedelta
-from urllib.parse import urljoin
+from urllib.parse import urlencode, urljoin
 
 from django.conf import settings
 from django.contrib import messages
@@ -202,19 +202,36 @@ class PermisoListView(PassIdPermissionMixin, ListView):
     required_permission = "usuario.view_permiso"
 
     def get_queryset(self):
-        queryset = Permiso.objects.all()
-        query = self.request.GET.get("q", "").strip()
-        if query:
+        self.permission_type = self.request.GET.get("tipo", "").strip()
+        self.query = self.request.GET.get("q", "").strip()
+        queryset = Permiso.objects.order_by("id")
+        if self.permission_type:
+            queryset = queryset.filter(tipo=self.permission_type)
+        if self.query:
             queryset = queryset.filter(
-                Q(tipo__icontains=query) |
-                Q(codename__icontains=query) |
-                Q(nombre__icontains=query)
+                Q(codename__icontains=self.query) |
+                Q(nombre__icontains=self.query)
             )
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
+        permission_type = getattr(
+            self,
+            "permission_type",
+            self.request.GET.get("tipo", "").strip(),
+        )
+        query = getattr(self, "query", self.request.GET.get("q", "").strip())
+        context["query"] = query
+        context["selected_type"] = permission_type
+        context["permission_types"] = (
+            Permiso.objects.order_by()
+            .values_list("tipo", flat=True)
+            .distinct()
+        )
+        context["pagination_query"] = urlencode(
+            {key: value for key, value in {"tipo": permission_type, "q": query}.items() if value}
+        )
         context["total_count"] = self.get_queryset().count()
         return context
 

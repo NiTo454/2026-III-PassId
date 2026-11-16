@@ -93,6 +93,55 @@ class PerfilLecturaTests(TestCase):
         self.assertNotIn("otro.autorregistrarse", permissions)
         self.assertNotIn("usuario.change_usuario", permissions)
 
+    def test_permission_list_filters_by_type_and_code_or_name(self):
+        matching_permission = Permiso.objects.create(
+            tipo="registro_filtro_test",
+            codename="importar_asistentes_filtro_test",
+            nombre="Importar asistentes de prueba",
+        )
+        Permiso.objects.create(
+            tipo="usuario_filtro_test",
+            codename="importar_usuarios_filtro_test",
+            nombre="Importar usuarios de prueba",
+        )
+
+        response = self.client.get(
+            reverse("usuarios:permiso_list"),
+            {"tipo": "registro_filtro_test", "q": "asistentes"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, matching_permission.codename)
+        self.assertNotContains(response, "importar_usuarios_filtro_test")
+        self.assertEqual(response.context["selected_type"], "registro_filtro_test")
+        self.assertEqual(
+            response.context["pagination_query"],
+            "tipo=registro_filtro_test&q=asistentes",
+        )
+
+    def test_permission_list_orders_results_by_id_ascending(self):
+        first = Permiso.objects.create(
+            tipo="orden_filtro_test",
+            codename="z_primero",
+            nombre="Primero por ID",
+        )
+        second = Permiso.objects.create(
+            tipo="orden_filtro_test",
+            codename="a_segundo",
+            nombre="Segundo por ID",
+        )
+
+        response = self.client.get(
+            reverse("usuarios:permiso_list"),
+            {"tipo": "orden_filtro_test"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [permission.pk for permission in response.context["permisos"]],
+            [first.pk, second.pk],
+        )
+
     def test_migration_does_not_create_a_user_account(self):
         self.assertFalse(Usuario.objects.filter(username="lectura").exists())
 
