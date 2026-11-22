@@ -1,3 +1,5 @@
+import pymysql
+from unittest.mock import MagicMock, patch
 from django.contrib.auth.hashers import make_password
 from django.test import TestCase
 from django.urls import reverse
@@ -665,3 +667,246 @@ class DisponibilidadDocenteTests(TestCase):
         self.assertTrue(response.context["periodo_nuevo_activo"])
         self.assertContains(response, "¿No aparece? Crear un período")
         self.assertContains(response, "periodo=__nuevo__&amp;dia=lunes")
+
+
+class ImportarCatalogosLegacyCommandTests(TestCase):
+    def setUp(self):
+        self.mock_legacy_data = {
+            "carrera": [
+                {
+                    "id": 10,
+                    "clave": "ISC-LEG",
+                    "nombre": "Ingenieria en Sistemas Computacionales",
+                    "activa": 1,
+                },
+                {
+                    "id": 20,
+                    "clave": "ADM-LEG",
+                    "nombre": "Licenciatura en Administracion",
+                    "activa": 1,
+                },
+            ],
+            "aula": [
+                {
+                    "id": 101,
+                    "codigo": "LAB-LEG-1",
+                    "edificio": "Edificio Central",
+                    "capacidad": 25,
+                    "tipo": "laboratorio",
+                    "activa": 1,
+                },
+                {
+                    "id": 102,
+                    "codigo": "AUD-LEG-1",
+                    "edificio": "Auditorio B",
+                    "capacidad": 150,
+                    "tipo": "auditorio",
+                    "activa": 1,
+                },
+            ],
+            "materia": [
+                {
+                    "id": 501,
+                    "clave": "MAT-LEG-101",
+                    "nombre": "Algoritmos y Estructuras",
+                    "asistencias": 32,
+                    "horas_semana": 5,
+                    "periodo": "2026-2",
+                    "carrera_id": 10,
+                    "activa": 1,
+                },
+                {
+                    "id": 502,
+                    "clave": "MAT-LEG-102",
+                    "nombre": "Contabilidad Basica",
+                    "asistencias": 20,
+                    "horas_semana": 3,
+                    "periodo": "2026-2",
+                    "carrera_id": 20,
+                    "activa": 1,
+                },
+            ],
+            "evento": [
+                {
+                    "id": 901,
+                    "nombre": "Congreso de Ingenieria 2026",
+                    "fecha_hora": "2026-10-15 10:00:00",
+                    "lugar": "Auditorio Principal",
+                    "requiere_registro": 1,
+                    "permitir_autorregistro": 1,
+                    "responsable_interno": "Dr. Mario Gomez",
+                    "responsable_externo": "Lic. Ana Diaz",
+                }
+            ],
+        }
+
+    def _setup_mock_connection(self, mock_pymysql_connect):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        def mock_execute(sql, *args, **kwargs):
+            sql_upper = sql.strip().upper()
+            if "FROM CARRERA" in sql_upper:
+                mock_cursor.fetchall.return_value = list(self.mock_legacy_data["carrera"])
+            elif "FROM AULA" in sql_upper:
+                mock_cursor.fetchall.return_value = list(self.mock_legacy_data["aula"])
+            elif "FROM MATERIA" in sql_upper:
+                mock_cursor.fetchall.return_value = list(self.mock_legacy_data["materia"])
+            elif "FROM EVENTO" in sql_upper:
+                mock_cursor.fetchall.return_value = list(self.mock_legacy_data["evento"])
+            else:
+                mock_cursor.fetchall.return_value = []
+
+        mock_cursor.execute.side_effect = mock_execute
+        mock_pymysql_connect.return_value = mock_conn
+        return mock_conn, mock_cursor
+
+    @patch("academico.management.commands.importar_catalogos_legacy.pymysql.connect")
+    def test_dry_run_previews_without_saving_changes(self, mock_connect):
+        from eventos.models import Evento
+        from django.core.management import call_command
+        from io import StringIO
+
+        self._setup_mock_connection(mock_connect)
+        out = StringIO()
+
+        carreras_antes = Carrera.objects.count()
+        aulas_antes = Aula.objects.count()
+        materias_antes = Materia.objects.count()
+        eventos_antes = Evento.objects.count()
+
+        call_command("importar_catalogos_legacy", dry_run=True, stdout=out)
+        salida = out.getvalue()
+
+        self.assertIn("[MODO DRY-RUN ACTIVO]", salida)
+        self.assertIn("DRY-RUN EXITOSO", salida)
+        self.assertIn("Tablas deliberadamente omitidas", salida)
+        self.assertIn("Carrera 'ISC-LEG'", salida)
+        self.assertIn("Aula 'LAB-LEG-1'", salida)
+        self.assertIn("Materia 'MAT-LEG-101'", salida)
+        self.assertIn("Evento 'Congreso de Ingenieria 2026'", salida)
+
+        # Verificar que no se guardo nada en la base de datos
+        self.assertEqual(Carrera.objects.count(), carreras_antes)
+        self.assertEqual(Aula.objects.count(), aulas_antes)
+        self.assertEqual(Materia.objects.count(), materias_antes)
+        self.assertEqual(Evento.objects.count(), eventos_antes)
+
+    @patch("academico.management.commands.importar_catalogos_legacy.pymysql.connect")
+    def test_importar_catalogos_exitoso_y_vinculacion_carrera(self, mock_connect):
+        from eventos.models import Evento
+        from django.core.management import call_command
+        from io import StringIO
+
+        self._setup_mock_connection(mock_connect)
+        out = StringIO()
+
+        call_command("importar_catalogos_legacy", stdout=out)
+        salida = out.getvalue()
+
+        self.assertIn("[IMPORTACION EXITOSA]", salida)
+
+        # 1. Verificar carrera
+        carrera_isc = Carrera.objects.get(clave="ISC-LEG")
+        self.assertEqual(carrera_isc.nombre, "Ingenieria en Sistemas Computacionales")
+        self.assertTrue(carrera_isc.activa)
+
+        carrera_adm = Carrera.objects.get(clave="ADM-LEG")
+        self.assertEqual(carrera_adm.nombre, "Licenciatura en Administracion")
+
+        # 2. Verificar aula
+        aula_lab = Aula.objects.get(codigo="LAB-LEG-1")
+        self.assertEqual(aula_lab.tipo, "laboratorio")
+        self.assertEqual(aula_lab.capacidad, 25)
+
+        # 3. Verificar materia con FK a carrera
+        materia_alg = Materia.objects.get(clave="MAT-LEG-101")
+        self.assertEqual(materia_alg.nombre, "Algoritmos y Estructuras")
+        self.assertEqual(materia_alg.carrera, carrera_isc)
+        self.assertEqual(materia_alg.asistencias, 32)
+        self.assertEqual(materia_alg.horas_semana, 5)
+
+        materia_cont = Materia.objects.get(clave="MAT-LEG-102")
+        self.assertEqual(materia_cont.carrera, carrera_adm)
+
+        # 4. Verificar evento general
+        evento = Evento.objects.get(nombre="Congreso de Ingenieria 2026")
+        self.assertEqual(evento.lugar, "Auditorio Principal")
+        self.assertEqual(evento.responsable_interno, "Dr. Mario Gomez")
+        self.assertEqual(evento.responsable_externo, "Lic. Ana Diaz")
+        self.assertTrue(evento.requiere_registro)
+        self.assertTrue(evento.permitir_autorregistro)
+
+    @patch("academico.management.commands.importar_catalogos_legacy.pymysql.connect")
+    def test_actualizar_registros_existentes(self, mock_connect):
+        from django.core.management import call_command
+        from io import StringIO
+
+        # Crear registros preexistentes
+        carrera = Carrera.objects.create(
+            clave="ISC-LEG",
+            nombre="Nombre Antiguo",
+            activa=False,
+        )
+        aula = Aula.objects.create(
+            codigo="LAB-LEG-1",
+            edificio="Antiguo",
+            capacidad=10,
+            tipo="aula",
+            activa=False,
+        )
+
+        self._setup_mock_connection(mock_connect)
+        out = StringIO()
+
+        call_command("importar_catalogos_legacy", stdout=out)
+        salida = out.getvalue()
+
+        self.assertIn("[ACTUALIZAR] Carrera 'ISC-LEG'", salida)
+        self.assertIn("[ACTUALIZAR] Aula 'LAB-LEG-1'", salida)
+
+        carrera.refresh_from_db()
+        self.assertEqual(carrera.nombre, "Ingenieria en Sistemas Computacionales")
+        self.assertTrue(carrera.activa)
+
+        aula.refresh_from_db()
+        self.assertEqual(aula.edificio, "Edificio Central")
+        self.assertEqual(aula.capacidad, 25)
+        self.assertEqual(aula.tipo, "laboratorio")
+
+    @patch("academico.management.commands.importar_catalogos_legacy.pymysql.connect")
+    def test_conexion_solo_lectura(self, mock_connect):
+        from django.core.management import call_command
+        from io import StringIO
+
+        _, mock_cursor = self._setup_mock_connection(mock_connect)
+        out = StringIO()
+
+        call_command("importar_catalogos_legacy", stdout=out)
+
+        executed_queries = [call.args[0] for call in mock_cursor.execute.call_args_list]
+        self.assertTrue(
+            any("READ ONLY" in q for q in executed_queries),
+            "Debe ejecutar SET SESSION TRANSACTION READ ONLY en la base legacy.",
+        )
+        for q in executed_queries:
+            q_upper = q.strip().upper()
+            self.assertFalse(q_upper.startswith("INSERT"), f"No debe escribir en legacy: {q}")
+            self.assertFalse(q_upper.startswith("UPDATE"), f"No debe escribir en legacy: {q}")
+            self.assertFalse(q_upper.startswith("DELETE"), f"No debe escribir en legacy: {q}")
+            self.assertFalse(q_upper.startswith("DROP"), f"No debe escribir en legacy: {q}")
+
+    @patch("academico.management.commands.importar_catalogos_legacy.pymysql.connect")
+    def test_error_conexion_lanza_command_error(self, mock_connect):
+        from django.core.management import call_command, CommandError
+        from io import StringIO
+
+        mock_connect.side_effect = pymysql.MySQLError(2003, "Can't connect to MySQL server")
+        out = StringIO()
+
+        with self.assertRaises(CommandError) as ctx:
+            call_command("importar_catalogos_legacy", stdout=out)
+
+        self.assertIn("Error al conectar con la base de datos Pasaporte2", str(ctx.exception))
+
