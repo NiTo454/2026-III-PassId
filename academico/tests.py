@@ -3,7 +3,332 @@ from django.test import TestCase
 from django.urls import reverse
 
 from usuarios.models import Perfil, Permiso, Usuario
-from .models import ProfesorDisponibilidad
+from .models import Aula, Carrera, Horario, Inscripcion, Materia, ProfesorDisponibilidad
+
+
+class AcademicCatalogFilterTests(TestCase):
+    def setUp(self):
+        self.admin = Usuario.objects.create_superuser(
+            username="catalog_admin",
+            email="catalog-admin@example.com",
+            password="test-password",
+            nombre="Carlos",
+            apaterno="Garcia",
+            amaterno="Lopez",
+            whatsapp="",
+            grupo="",
+        )
+        self.client.force_login(self.admin)
+
+    def test_career_catalog_filters_by_text_and_status(self):
+        active = Carrera.objects.create(
+            clave="SIS",
+            nombre="Ingeniería en Sistemas",
+            activa=True,
+        )
+        inactive = Carrera.objects.create(
+            clave="SIS-OLD",
+            nombre="Sistemas anteriores",
+            activa=False,
+        )
+
+        response = self.client.get(
+            reverse("academico:carrera_list"),
+            {"q": "SIS", "activa": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["carreras"]), [active])
+        self.assertEqual(response.context["pagination_query"], "q=SIS&activa=1")
+        self.assertContains(response, 'id="filter-carrera-activa"')
+        self.assertNotContains(response, inactive.clave)
+
+        response = self.client.get(
+            reverse("academico:carrera_list"),
+            {"q": "sisold", "activa": "0"},
+        )
+
+        self.assertEqual(list(response.context["carreras"]), [inactive])
+
+    def test_classroom_catalog_filters_by_type_and_status(self):
+        active_lab = Aula.objects.create(
+            codigo="LAB-01",
+            tipo="laboratorio",
+            activa=True,
+        )
+        Aula.objects.create(
+            codigo="LAB-02",
+            tipo="laboratorio",
+            activa=False,
+        )
+        Aula.objects.create(
+            codigo="AULA-01",
+            tipo="aula",
+            activa=True,
+        )
+
+        response = self.client.get(
+            reverse("academico:aula_list"),
+            {"tipo": "laboratorio", "activa": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["aulas"]), [active_lab])
+        self.assertContains(response, 'id="filter-aula-tipo"')
+        self.assertEqual(
+            response.context["pagination_query"],
+            "tipo=laboratorio&activa=1",
+        )
+
+        response = self.client.get(
+            reverse("academico:aula_list"),
+            {"q": "lab01", "activa": "1"},
+        )
+
+        self.assertEqual(list(response.context["aulas"]), [active_lab])
+
+    def test_subject_catalog_filters_by_career_period_and_status(self):
+        carrera = Carrera.objects.create(
+            clave="COM",
+            nombre="Ciencias Aplicadas",
+        )
+        matching = Materia.objects.create(
+            clave="PROG-1",
+            nombre="Programación I",
+            periodo="2026-3",
+            carrera=carrera,
+            activa=True,
+        )
+        Materia.objects.create(
+            clave="PROG-2",
+            nombre="Programación II",
+            periodo="2026-3",
+            carrera=carrera,
+            activa=False,
+        )
+        Materia.objects.create(
+            clave="RED-1",
+            nombre="Redes",
+            periodo="2026-3",
+            activa=True,
+        )
+
+        response = self.client.get(
+            reverse("academico:materia_list"),
+            {
+                "q": "cienciasaplicadas",
+                "periodo": "2026-3",
+                "activa": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["materias"]), [matching])
+        self.assertNotContains(response, 'id="filter-materia-carrera"')
+        self.assertEqual(
+            response.context["pagination_query"],
+            "q=cienciasaplicadas&periodo=2026-3&activa=1",
+        )
+
+        response = self.client.get(
+            reverse("academico:materia_list"),
+            {"q": "com", "activa": "1"},
+        )
+
+        self.assertEqual(list(response.context["materias"]), [matching])
+
+        response = self.client.get(
+            reverse("academico:materia_list"),
+            {"q": "prog1", "activa": "1"},
+        )
+
+        self.assertEqual(list(response.context["materias"]), [matching])
+
+    def test_schedule_catalog_filters_by_group_day_period_and_status(self):
+        materia = Materia.objects.create(
+            clave="MAT-1",
+            nombre="Matemáticas",
+        )
+        aula = Aula.objects.create(codigo="LAB-X")
+        matching = Horario.objects.create(
+            materia=materia,
+            profesor=self.admin,
+            aula=aula,
+            grupo="Grupo-A",
+            dia_semana="lunes",
+            hora_inicio="09:00",
+            hora_fin="10:00",
+            periodo="2026-3",
+            activo=True,
+        )
+        other_group = Horario.objects.create(
+            materia=materia,
+            profesor=self.admin,
+            aula=aula,
+            grupo="Grupo-B",
+            dia_semana="lunes",
+            hora_inicio="10:00",
+            hora_fin="11:00",
+            periodo="2026-3",
+            activo=True,
+        )
+        Horario.objects.create(
+            materia=materia,
+            profesor=self.admin,
+            aula=aula,
+            grupo="Grupo-A",
+            dia_semana="lunes",
+            hora_inicio="11:00",
+            hora_fin="12:00",
+            periodo="2026-3",
+            activo=False,
+        )
+
+        response = self.client.get(
+            reverse("academico:horario_list"),
+            {
+                "q": "  gRuPo-A  ",
+                "dia": "lunes",
+                "periodo": "2026-3",
+                "activo": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["horarios"]), [matching])
+        self.assertContains(response, 'id="filter-horario-dia"')
+        self.assertNotContains(response, 'id="filter-horario-materia"')
+        self.assertNotContains(response, 'id="filter-horario-profesor"')
+        self.assertNotContains(response, 'id="filter-horario-aula"')
+        self.assertNotContains(response, 'id="filter-horario-grupo"')
+        self.assertEqual(
+            response.context["pagination_query"],
+            "q=gRuPo-A&dia=lunes&periodo=2026-3&activo=1",
+        )
+
+        response = self.client.get(
+            reverse("academico:horario_list"),
+            {"q": "  cArLoS   gArCiA "},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["horarios"].count(), 3)
+
+        for apellido in ("garcia", "LOPEZ"):
+            with self.subTest(apellido=apellido):
+                response = self.client.get(
+                    reverse("academico:horario_list"),
+                    {"q": apellido},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["horarios"].count(), 3)
+
+        response = self.client.get(
+            reverse("academico:horario_list"),
+            {"q": "labx", "activo": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context["horarios"]),
+            [matching, other_group],
+        )
+
+        response = self.client.get(
+            reverse("academico:horario_list"),
+            {"q": "grupo a", "activo": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["horarios"]), [matching])
+
+        response = self.client.get(
+            reverse("academico:horario_list"),
+            {"q": "mat-1", "activo": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["horarios"].count(), 2)
+
+    def test_enrollment_catalog_combines_search_and_normalizes_terms(self):
+        materia = Materia.objects.create(
+            clave="MAT-2",
+            nombre="Física",
+        )
+        alumno = Usuario.objects.create_user(
+            username="alumno_catalogo",
+            email="alumno-catalogo@example.com",
+            password="test-password",
+            nombre="Ana",
+            apaterno="Estudiante",
+            matricula="2026-AB",
+            whatsapp="",
+            grupo="",
+        )
+        otro_alumno = Usuario.objects.create_user(
+            username="alumno_inactivo_catalogo",
+            email="alumno-inactivo-catalogo@example.com",
+            password="test-password",
+            nombre="Ana",
+            apaterno="Inactiva",
+            whatsapp="",
+            grupo="",
+        )
+        matching = Inscripcion.objects.create(
+            usuario=alumno,
+            materia=materia,
+            grupo="Grupo-A",
+            periodo="2026-3",
+            activa=True,
+        )
+        Inscripcion.objects.create(
+            usuario=otro_alumno,
+            materia=materia,
+            grupo="Grupo-A",
+            periodo="2026-3",
+            activa=False,
+        )
+        other_group = Inscripcion.objects.create(
+            usuario=alumno,
+            materia=materia,
+            grupo="Grupo-B",
+            periodo="2026-3",
+            activa=True,
+        )
+
+        response = self.client.get(
+            reverse("academico:inscripcion_list"),
+            {
+                "q": "  aNa   estuDIAnte ",
+                "periodo": "2026-3",
+                "activa": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            set(response.context["inscripciones"].values_list("pk", flat=True)),
+            {matching.pk, other_group.pk},
+        )
+        self.assertNotContains(response, 'id="filter-inscripcion-materia"')
+        self.assertNotContains(response, 'id="filter-inscripcion-grupo"')
+        self.assertEqual(
+            response.context["pagination_query"],
+            "q=aNa+++estuDIAnte&periodo=2026-3&activa=1",
+        )
+
+        for search in ("grupo a", "mat2", "2026ab", "ESTUDIANTE"):
+            with self.subTest(search=search):
+                response = self.client.get(
+                    reverse("academico:inscripcion_list"),
+                    {"q": search, "activa": "1"},
+                )
+                self.assertEqual(response.status_code, 200)
+                expected_count = 1 if search == "grupo a" else 2
+                self.assertEqual(
+                    response.context["inscripciones"].count(),
+                    expected_count,
+                )
 
 
 class DisponibilidadDocenteTests(TestCase):

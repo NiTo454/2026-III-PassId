@@ -4,7 +4,8 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, Q, Value
+from django.db.models.functions import Lower, Replace
 from django.contrib import messages
 from core.mixins import PassIdPermissionMixin
 from .models import (
@@ -26,6 +27,62 @@ from .forms import (
 from django.contrib.auth import get_user_model
 
 
+def _catalog_filters(request, *field_names):
+    return {
+        field_name: request.GET.get(field_name, "").strip()
+        for field_name in field_names
+    }
+
+
+def _add_catalog_filter_context(context, filters):
+    context["filters"] = filters
+    context["pagination_query"] = urlencode(
+        {name: value for name, value in filters.items() if value}
+    )
+
+
+def _normalized_search_expression(field_name):
+    expression = F(field_name)
+    for separator in ("-", " ", "_", ".", "/"):
+        expression = Replace(expression, Value(separator), Value(""))
+    return Lower(expression)
+
+
+def _filter_catalog_search(queryset, query, search_fields, normalized_fields=()):
+    if not query:
+        return queryset
+
+    terms = " ".join(query.split()).casefold().split()
+    normalized_query = "".join(
+        character for character in query.casefold() if character.isalnum()
+    )
+    token_query = Q()
+    for term in terms:
+        term_query = Q()
+        for field_name in search_fields:
+            term_query |= Q(**{f"{field_name}__icontains": term})
+        if len(terms) == 1:
+            for field_name in normalized_fields:
+                term_query |= Q(**{f"{field_name}__icontains": term})
+        token_query &= term_query
+
+    if not normalized_query or not normalized_fields:
+        return queryset.filter(token_query)
+
+    annotations = {
+        f"normalized_search_{index}": _normalized_search_expression(field_name)
+        for index, field_name in enumerate(normalized_fields)
+    }
+    normalized_query_filter = Q()
+    for index in range(len(normalized_fields)):
+        normalized_query_filter |= Q(
+            **{f"normalized_search_{index}__contains": normalized_query}
+        )
+    return queryset.annotate(**annotations).filter(
+        token_query | normalized_query_filter
+    )
+
+
 # ==============================================================================
 # VISTAS DE CARRERA
 # ==============================================================================
@@ -39,16 +96,22 @@ class CarreraListView(PassIdPermissionMixin, ListView):
 
     def get_queryset(self):
         queryset = Carrera.objects.all()
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(clave__icontains=query) | Q(nombre__icontains=query)
-            )
+        self.filters = _catalog_filters(self.request, "q", "activa")
+        queryset = _filter_catalog_search(
+            queryset,
+            self.filters["q"],
+            ("clave", "nombre"),
+            ("clave",),
+        )
+        if self.filters["activa"] in {"1", "0"}:
+            queryset = queryset.filter(activa=self.filters["activa"] == "1")
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
+        filters = getattr(self, "filters", _catalog_filters(self.request, "q", "activa"))
+        context["query"] = filters["q"]
+        _add_catalog_filter_context(context, filters)
         context["page_title"] = "Catálogo de Carreras"
         context["page_subtitle"] = "Gestión de planes de estudio y programas académicos"
         context["create_url"] = reverse_lazy("academico:carrera_create")
@@ -142,18 +205,34 @@ class AulaListView(PassIdPermissionMixin, ListView):
 
     def get_queryset(self):
         queryset = Aula.objects.all()
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(codigo__icontains=query) |
-                Q(edificio__icontains=query) |
-                Q(tipo__icontains=query)
-            )
+        self.filters = _catalog_filters(
+            self.request,
+            "q",
+            "tipo",
+            "activa",
+        )
+        queryset = _filter_catalog_search(
+            queryset,
+            self.filters["q"],
+            ("edificio", "tipo"),
+            ("codigo",),
+        )
+        if self.filters["tipo"] in dict(Aula.TIPO_CHOICES):
+            queryset = queryset.filter(tipo=self.filters["tipo"])
+        if self.filters["activa"] in {"1", "0"}:
+            queryset = queryset.filter(activa=self.filters["activa"] == "1")
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
+        filters = getattr(
+            self,
+            "filters",
+            _catalog_filters(self.request, "q", "tipo", "activa"),
+        )
+        context["query"] = filters["q"]
+        _add_catalog_filter_context(context, filters)
+        context["tipos_aula"] = Aula.TIPO_CHOICES
         context["page_title"] = "Catálogo de Aulas y Espacios"
         context["page_subtitle"] = "Administración de aulas, laboratorios y auditorios"
         context["create_url"] = reverse_lazy("academico:aula_create")
@@ -247,19 +326,41 @@ class MateriaListView(PassIdPermissionMixin, ListView):
 
     def get_queryset(self):
         queryset = Materia.objects.select_related("carrera").all()
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(clave__icontains=query) |
-                Q(nombre__icontains=query) |
-                Q(periodo__icontains=query) |
-                Q(carrera__nombre__icontains=query)
-            )
+        self.filters = _catalog_filters(
+            self.request,
+            "q",
+            "periodo",
+            "activa",
+        )
+        queryset = _filter_catalog_search(
+            queryset,
+            self.filters["q"],
+            ("nombre", "periodo", "carrera__nombre", "carrera__clave"),
+            ("clave", "carrera__nombre", "carrera__clave"),
+        )
+        if self.filters["periodo"]:
+            queryset = queryset.filter(periodo=self.filters["periodo"])
+        if self.filters["activa"] in {"1", "0"}:
+            queryset = queryset.filter(activa=self.filters["activa"] == "1")
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
+        filters = getattr(
+            self,
+            "filters",
+            _catalog_filters(self.request, "q", "periodo", "activa"),
+        )
+        context["query"] = filters["q"]
+        _add_catalog_filter_context(context, filters)
+        context["periodos_filtro"] = (
+            Materia.objects.exclude(periodo__isnull=True)
+            .exclude(periodo="")
+            .order_by()
+            .values_list("periodo", flat=True)
+            .distinct()
+            .order_by("periodo")
+        )
         context["page_title"] = "Catálogo de Materias"
         context["page_subtitle"] = "Listado general de asignaturas y planes de estudio"
         context["create_url"] = reverse_lazy("academico:materia_create")
@@ -352,26 +453,66 @@ class HorarioListView(PassIdPermissionMixin, ListView):
 
     def get_queryset(self):
         queryset = Horario.objects.select_related("materia", "profesor", "aula").all()
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(materia__nombre__icontains=query) |
-                Q(profesor__nombre__icontains=query) |
-                Q(profesor__username__icontains=query) |
-                Q(aula__codigo__icontains=query) |
-                Q(periodo__icontains=query) |
-                Q(dia_semana__icontains=query)
-            )
+        self.filters = _catalog_filters(
+            self.request,
+            "q",
+            "dia",
+            "periodo",
+            "activo",
+        )
+        queryset = _filter_catalog_search(
+            queryset,
+            self.filters["q"],
+            (
+                "materia__nombre",
+                "materia__clave",
+                "profesor__nombre",
+                "profesor__apaterno",
+                "profesor__amaterno",
+                "profesor__username",
+                "profesor__matricula",
+                "periodo",
+                "dia_semana",
+            ),
+            ("aula__codigo", "grupo"),
+        )
+        if self.filters["dia"] in dict(Horario._meta.get_field("dia_semana").choices):
+            queryset = queryset.filter(dia_semana=self.filters["dia"])
+        if self.filters["periodo"]:
+            queryset = queryset.filter(periodo=self.filters["periodo"])
+        if self.filters["activo"] in {"1", "0"}:
+            queryset = queryset.filter(activo=self.filters["activo"] == "1")
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
+        filters = getattr(
+            self,
+            "filters",
+            _catalog_filters(
+                self.request,
+                "q",
+                "dia",
+                "periodo",
+                "activo",
+            ),
+        )
+        _add_catalog_filter_context(context, filters)
+        context["query"] = filters["q"]
+        context["dias_filtro"] = Horario._meta.get_field("dia_semana").choices
+        context["periodos_filtro"] = (
+            Horario.objects.order_by()
+            .values_list("periodo", flat=True)
+            .distinct()
+            .order_by("periodo")
+        )
         context["page_title"] = "Gestión de Horarios de Clases"
         context["page_subtitle"] = "Programación académica por grupo, aula y docente"
         context["create_url"] = reverse_lazy("academico:horario_create")
         context["create_label"] = "Nuevo Horario"
-        context["search_placeholder"] = "Buscar por materia, profesor, aula, grupo o periodo..."
+        context["search_placeholder"] = (
+            "Buscar por materia, profesor, aula, grupo o periodo..."
+        )
         return context
 
 
@@ -458,21 +599,49 @@ class InscripcionListView(PassIdPermissionMixin, ListView):
 
     def get_queryset(self):
         queryset = Inscripcion.objects.select_related("usuario", "materia").order_by("-fecha_inscripcion")
-        query = self.request.GET.get("q", "").strip()
-        if query:
-            queryset = queryset.filter(
-                Q(usuario__nombre__icontains=query) |
-                Q(usuario__username__icontains=query) |
-                Q(usuario__matricula__icontains=query) |
-                Q(materia__nombre__icontains=query) |
-                Q(grupo__icontains=query) |
-                Q(periodo__icontains=query)
-            )
+        self.filters = _catalog_filters(
+            self.request,
+            "q",
+            "periodo",
+            "activa",
+        )
+        queryset = _filter_catalog_search(
+            queryset,
+            self.filters["q"],
+            (
+                "usuario__nombre",
+                "usuario__apaterno",
+                "usuario__amaterno",
+                "usuario__username",
+                "usuario__email",
+                "usuario__matricula",
+                "materia__nombre",
+                "materia__clave",
+                "periodo",
+            ),
+            ("usuario__matricula", "materia__clave", "grupo"),
+        )
+        if self.filters["periodo"]:
+            queryset = queryset.filter(periodo=self.filters["periodo"])
+        if self.filters["activa"] in {"1", "0"}:
+            queryset = queryset.filter(activa=self.filters["activa"] == "1")
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["query"] = self.request.GET.get("q", "")
+        filters = getattr(
+            self,
+            "filters",
+            _catalog_filters(self.request, "q", "periodo", "activa"),
+        )
+        context["query"] = filters["q"]
+        _add_catalog_filter_context(context, filters)
+        context["periodos_filtro"] = (
+            Inscripcion.objects.order_by()
+            .values_list("periodo", flat=True)
+            .distinct()
+            .order_by("periodo")
+        )
         context["page_title"] = "Inscripciones de Alumnos"
         context["page_subtitle"] = "Gestión de alumnos inscritos en materias y grupos"
         context["create_url"] = reverse_lazy("academico:inscripcion_create")
