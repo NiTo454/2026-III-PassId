@@ -1,5 +1,35 @@
 {% extends 'common/list_base.html' %}
 
+{% block search_form %}
+<form method="get" class="filter-grid filter-grid--embedded">
+    <div class="form-group filter-search-field">
+        <label class="form-label" for="filter-carrera-query">Clave o nombre</label>
+        <input
+            class="form-control"
+            id="filter-carrera-query"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="Buscar carrera..."
+        >
+    </div>
+    <div class="form-group">
+        <label class="form-label" for="filter-carrera-activa">Estado</label>
+        <select class="form-control" id="filter-carrera-activa" name="activa">
+            <option value="">Todas</option>
+            <option value="1" {% if filters.activa == "1" %}selected{% endif %}>Activas</option>
+            <option value="0" {% if filters.activa == "0" %}selected{% endif %}>Inactivas</option>
+        </select>
+    </div>
+    <button type="submit" class="btn-search filter-action">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Filtrar
+    </button>
+    <a href="{% url 'academico:carrera_list' %}" class="btn-cancel filter-action filter-clear">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i> Limpiar filtros
+    </a>
+</form>
+{% endblock %}
+
 {% block table_head %}
 <tr>
     <th>ID</th>

@@ -1,5 +1,44 @@
 {% extends 'common/list_base.html' %}
 
+{% block search_form %}
+<form method="get" class="filter-grid filter-grid--embedded">
+    <div class="form-group filter-search-field">
+        <label class="form-label" for="filter-aula-query">Código o edificio</label>
+        <input
+            class="form-control"
+            id="filter-aula-query"
+            name="q"
+            type="search"
+            value="{{ filters.q }}"
+            placeholder="Buscar aula..."
+        >
+    </div>
+    <div class="form-group">
+        <label class="form-label" for="filter-aula-tipo">Tipo</label>
+        <select class="form-control" id="filter-aula-tipo" name="tipo">
+            <option value="">Todos los tipos</option>
+            {% for tipo, tipo_label in tipos_aula %}
+            <option value="{{ tipo }}" {% if filters.tipo == tipo %}selected{% endif %}>{{ tipo_label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label class="form-label" for="filter-aula-activa">Estado</label>
+        <select class="form-control" id="filter-aula-activa" name="activa">
+            <option value="">Todas</option>
+            <option value="1" {% if filters.activa == "1" %}selected{% endif %}>Activas</option>
+            <option value="0" {% if filters.activa == "0" %}selected{% endif %}>Inactivas</option>
+        </select>
+    </div>
+    <button type="submit" class="btn-search filter-action">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Filtrar
+    </button>
+    <a href="{% url 'academico:aula_list' %}" class="btn-cancel filter-action filter-clear">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i> Limpiar filtros
+    </a>
+</form>
+{% endblock %}
+
 {% block table_head %}
 <tr>
     <th>Código</th>
