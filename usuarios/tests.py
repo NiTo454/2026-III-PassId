@@ -13,6 +13,34 @@ from .forms import UsuarioUpdateForm
 from .models import Perfil, Permiso, Usuario
 
 
+class CambiarPasswordViewTests(TestCase):
+    def setUp(self):
+        self.usuario = Usuario(
+            username="cambiar_password_usuario",
+            email="cambiar-password@example.invalid",
+            whatsapp="5550000000",
+            grupo="A1",
+        )
+        self.usuario.set_password("password-original")
+        self.usuario.save()
+        permission, _ = Permiso.objects.get_or_create(
+            tipo="usuario",
+            codename="change_password",
+        )
+        self.usuario.permisos_directos.add(permission)
+        self.client.force_login(self.usuario)
+
+    def test_password_change_form_uses_styled_fields_and_visibility_toggles(self):
+        response = self.client.get(reverse("usuarios:cambiar_password"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Seguridad de la cuenta")
+        self.assertContains(response, 'class="form-control"')
+        self.assertContains(response, 'autocomplete="current-password"')
+        self.assertEqual(response.content.count(b"data-password-toggle"), 3)
+        self.assertContains(response, "password-change-guidance")
+
+
 class UsuarioUpdatePasswordTests(TestCase):
     def setUp(self):
         self.usuario = Usuario(

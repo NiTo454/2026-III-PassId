@@ -648,6 +648,161 @@ body > body > header {
     outline-offset: 3px;
 }
 
+.password-change-page {
+    width: min(100%, 700px);
+    margin: 0 auto;
+}
+
+.password-change-card {
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.password-change-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.password-change-icon {
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--midnight-100);
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--border-glass);
+    border-radius: 13px;
+    font-size: 1.15rem;
+}
+
+.password-change-eyebrow {
+    margin-bottom: 0.3rem;
+    color: var(--midnight-500);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.password-change-heading .page-title {
+    font-size: clamp(1.4rem, 4vw, 1.75rem);
+}
+
+.password-change-heading .page-subtitle {
+    max-width: 470px;
+    margin-top: 0.35rem;
+    line-height: 1.5;
+}
+
+.password-change-group {
+    margin-bottom: 1.2rem;
+}
+
+.password-change-group .form-label {
+    color: #e4e4e7;
+    font-size: 0.84rem;
+}
+
+.password-change-group .form-control {
+    min-height: 48px;
+    padding-right: 3.25rem;
+    background: #0b0d10;
+    border-color: var(--midnight-800);
+}
+
+.password-change-group .form-control:focus {
+    border-color: var(--midnight-500);
+    box-shadow: 0 0 0 3px rgba(124, 135, 148, 0.2);
+}
+
+.password-change-group .auth-password-toggle {
+    right: 0.4rem;
+}
+
+.password-change-guidance {
+    margin-top: 0.65rem;
+    padding: 0.75rem 0.9rem;
+    color: #a1a1aa;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+.password-change-guidance ul {
+    display: grid;
+    gap: 0.25rem;
+    padding-left: 1.15rem;
+}
+
+.password-change-guidance li::marker {
+    color: var(--midnight-500);
+}
+
+.password-change-field-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    margin-top: 0.5rem;
+    color: #fca5a5;
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.password-change-field-error i {
+    margin-top: 0.1rem;
+    flex: 0 0 auto;
+}
+
+.password-change-error {
+    margin-bottom: 1.25rem;
+}
+
+.password-change-actions {
+    align-items: stretch;
+    margin-top: 1.65rem;
+}
+
+.password-change-actions .btn-cancel,
+.password-change-actions .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 48px;
+    text-decoration: none;
+}
+
+.password-change-actions .btn-cancel {
+    min-width: 130px;
+}
+
+@media (max-width: 520px) {
+    .password-change-heading {
+        gap: 0.75rem;
+    }
+
+    .password-change-icon {
+        width: 2.6rem;
+        height: 2.6rem;
+        border-radius: 11px;
+    }
+
+    .password-change-actions {
+        flex-direction: column-reverse;
+        gap: 0.65rem;
+    }
+
+    .password-change-actions .btn-cancel,
+    .password-change-actions .btn-submit {
+        width: 100%;
+        min-height: 48px;
+    }
+}
+
 .auth-form-alert {
     align-items: flex-start;
     margin-bottom: 1.5rem;

@@ -533,6 +533,19 @@ class CambiarPasswordView(PassIdPermissionMixin, PasswordChangeView):
     success_url = reverse_lazy('autenticacion:login')
     required_permission = "usuario.change_password"
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        autocomplete_values = {
+            "old_password": "current-password",
+            "new_password1": "new-password",
+            "new_password2": "new-password",
+        }
+        for field_name, autocomplete in autocomplete_values.items():
+            widget = form.fields[field_name].widget
+            widget.attrs["class"] = "form-control"
+            widget.attrs["autocomplete"] = autocomplete
+        return form
+
     def form_valid(self, form):
         messages.success(self.request, "Tu contraseña ha sido actualizada. Por favor, inicia sesión con tu nueva contraseña.")
         response = super().form_valid(form)
