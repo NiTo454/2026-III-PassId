@@ -1,182 +1,108 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Carga Académica | PassID{% endblock %}
+{% block title %}Carga académica - PassID{% endblock %}
 
 {% block content %}
-
-<div class="form-container">
-
-    <div class="page-header">
+<section class="academic-workload">
+    <header class="page-header">
         <div>
-            <h1 class="page-title">
-                <i class="fa-solid fa-calendar-week"></i>
-                Carga Académica
-            </h1>
-
-            <p class="page-subtitle">
-                Horario semanal de clases asignadas
-            </p>
+            <p class="catalog-eyebrow"><i class="fa-solid fa-calendar-week" aria-hidden="true"></i> Programación académica</p>
+            <h1 class="page-title">Carga académica</h1>
+            <p class="page-subtitle">Consulta los horarios de clase organizados por día.</p>
         </div>
+    </header>
 
-        <form method="get" class="actions">
-
+    <section class="glass-card academic-filter-card" aria-label="Filtros de carga académica">
+        <form method="get" class="academic-filter-form{% if es_admin_horarios %} has-teacher-filter{% endif %}">
             {% if es_admin_horarios %}
-                <label class="form-label" for="profesor_id">
-                    Docente
-                </label>
-
-                <select
-                    class="form-control"
-                    id="profesor_id"
-                    name="profesor_id"
-                >
+            <div class="form-group">
+                <label class="form-label" for="profesor_id">Docente</label>
+                <select class="form-select" id="profesor_id" name="profesor_id">
                     {% for docente in profesores %}
-                        <option
-                            value="{{ docente.pk }}"
-                            {% if docente.pk == profesor_seleccionado.pk %}
-                                selected
-                            {% endif %}
-                        >
-                            {{ docente }}
-                        </option>
+                    <option value="{{ docente.pk }}" {% if docente.pk == profesor_seleccionado.pk %}selected{% endif %}>
+                        {{ docente }}
+                    </option>
                     {% endfor %}
                 </select>
+            </div>
             {% endif %}
-
-            <label class="form-label" for="periodo">
-                Periodo
-            </label>
-
-            <input
-                class="form-control"
-                type="text"
-                id="periodo"
-                name="periodo"
-                value="{{ periodo }}"
-                placeholder="2026-1"
-            >
-
+            <div class="form-group">
+                <label class="form-label" for="periodo">Periodo académico</label>
+                <input
+                    class="form-control"
+                    type="text"
+                    id="periodo"
+                    name="periodo"
+                    value="{{ periodo }}"
+                    placeholder="Ej. 2026-1"
+                >
+            </div>
             <button class="btn-create" type="submit">
-                <i class="fa-solid fa-filter"></i>
-                Filtrar
+                <i class="fa-solid fa-filter" aria-hidden="true"></i> Consultar horario
             </button>
-
         </form>
-    </div>
+    </section>
 
-    <div class="glass-card">
-
-        <div class="grid-2">
-
-            <div class="form-group">
-                <span class="form-label">
-                    <i class="fa-solid fa-clock"></i>
-                    CARGA SEMANAL TOTAL
-                </span>
-
-                <h2 class="page-title">
-                    {{ horas_totales }}{% if minutos_totales %}:{{ minutos_totales|stringformat:"02d" }}{% endif %}
-                    hrs/semana
-                </h2>
+    <section class="academic-workload-stats" aria-label="Resumen de carga">
+        <article class="glass-card academic-stat-card">
+            <span class="academic-stat-icon"><i class="fa-solid fa-clock" aria-hidden="true"></i></span>
+            <div class="academic-stat-copy">
+                <span>Horas de clase por semana</span>
+                <strong>{{ horas_totales }}{% if minutos_totales %}:{{ minutos_totales|stringformat:"02d" }}{% endif %} h</strong>
             </div>
-
-            <div class="form-group">
-                <span class="form-label">
-                    <i class="fa-solid fa-user-tie"></i>
-                    DOCENTE SELECCIONADO
-                </span>
-
-                <h2 class="page-title">
-                    {{ profesor_nombre }}
-                </h2>
+        </article>
+        <article class="glass-card academic-stat-card">
+            <span class="academic-stat-icon"><i class="fa-solid fa-user-tie" aria-hidden="true"></i></span>
+            <div class="academic-stat-copy">
+                <span>Docente · {{ periodo }}</span>
+                <strong>{{ profesor_nombre }}</strong>
             </div>
+        </article>
+    </section>
 
+    {% if not hay_horarios %}
+    <section class="glass-card academic-empty-state">
+        <span class="academic-empty-icon"><i class="fa-regular fa-calendar-xmark" aria-hidden="true"></i></span>
+        <h2>No hay clases asignadas</h2>
+        <p>Este docente no tiene horarios registrados para el periodo {{ periodo }}.</p>
+    </section>
+    {% else %}
+    <section aria-labelledby="academic-week-title">
+        <div class="academic-section-heading">
+            <div>
+                <p class="catalog-eyebrow">Vista semanal</p>
+                <h2 id="academic-week-title">Horario por día</h2>
+            </div>
+            <span class="badge-role">{{ periodo }}</span>
         </div>
 
-    </div>
-
-    <br>
-
-    <div class="glass-card">
-
-        {% if not hay_horarios %}
-
-            <div class="text-center">
-
-                <i class="fa-solid fa-calendar-xmark"></i>
-
-                <h2 class="page-title">
-                    No hay clases asignadas
-                </h2>
-
-                <p class="page-subtitle">
-                    El docente no tiene horarios registrados
-                    para el periodo
-                    <strong>{{ periodo }}</strong>.
-                </p>
-
-            </div>
-
-        {% else %}
-
-            <div class="page-header">
-                <h2 class="page-title">
-                    <i class="fa-solid fa-calendar-days"></i>
-                    Horario semanal
-                </h2>
-            </div>
-
+        <div class="academic-workload-days">
             {% for dia in dias_con_horarios %}
-
-                <div class="form-group">
-
-                    <h3 class="form-title">
-                        {{ dia.nombre }}
-                    </h3>
-
+            <article class="academic-schedule-day">
+                <header>
+                    <h2>{{ dia.nombre }}</h2>
+                    <span>{{ dia.horarios|length }} clase{% if dia.horarios|length != 1 %}s{% endif %}</span>
+                </header>
+                <div class="academic-schedule-list">
                     {% for clase in dia.horarios %}
-
-                        <div class="form-group">
-
-                            <span class="form-label">
-                                <i class="fa-solid fa-book"></i>
-                                {{ clase.materia.nombre }}
-                            </span>
-
-                            <p class="page-subtitle">
-                                <i class="fa-regular fa-clock"></i>
-
-                                {{ clase.hora_inicio|time:"H:i" }}
-                                -
-                                {{ clase.hora_fin|time:"H:i" }}
-                            </p>
-
-                            <p class="page-subtitle">
-                                Grupo: {{ clase.grupo }}
-
-                                {% if clase.aula %}
-                                    | Aula: {{ clase.aula.codigo }}
-                                {% endif %}
-                            </p>
-
-                        </div>
-
+                    <article class="academic-schedule-class">
+                        <span class="academic-schedule-time">
+                            {{ clase.hora_inicio|time:"H:i" }}–{{ clase.hora_fin|time:"H:i" }}
+                        </span>
+                        <strong>{{ clase.materia.nombre }}</strong>
+                        <span class="academic-schedule-meta">
+                            {{ clase.materia.clave }} · Grupo {{ clase.grupo }}
+                            {% if clase.aula %} · {{ clase.aula.codigo }}{% endif %}
+                        </span>
+                    </article>
                     {% empty %}
-
-                        <p class="page-subtitle">
-                            No hay clases asignadas este día.
-                        </p>
-
+                    <p class="academic-schedule-empty">Sin clases programadas.</p>
                     {% endfor %}
-
                 </div>
-
+            </article>
             {% endfor %}
-
-        {% endif %}
-
-    </div>
-
-</div>
-
+        </div>
+    </section>
+    {% endif %}
+</section>
 {% endblock %}

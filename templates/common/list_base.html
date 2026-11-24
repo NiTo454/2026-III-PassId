@@ -3,21 +3,29 @@
 {% block title %}{{ page_title|default:"Catálogo" }} - PassID{% endblock %}
 
 {% block content %}
-<div class="page-header">
+<div class="page-header catalog-page-header">
     <div>
+        {% if request.resolver_match.app_name == "academico" %}
+        <p class="catalog-eyebrow"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Gestión académica</p>
+        {% endif %}
         <h1 class="page-title">{{ page_title }}</h1>
         {% if page_subtitle %}
         <p class="page-subtitle">{{ page_subtitle }}</p>
         {% endif %}
     </div>
-    {% if create_url and can_create %}
-    <a href="{{ create_url }}" class="btn-create">
-        <i class="fa-solid fa-plus"></i> {{ create_label|default:"Crear Nuevo" }}
-    </a>
+    {% if can_create or can_add_header_actions %}
+    <div class="page-actions">
+        {% block header_actions %}{% endblock %}
+        {% if create_url and can_create %}
+        <a href="{{ create_url }}" class="btn-create">
+            <i class="fa-solid fa-plus"></i> {{ create_label|default:"Crear Nuevo" }}
+        </a>
+        {% endif %}
+    </div>
     {% endif %}
 </div>
 
-<div class="glass-card">
+<div class="glass-card catalog-card">
     {% block search_form %}
     <form method="get" class="search-bar">
         <input type="text" name="q" value="{{ query|default:'' }}" class="search-input" placeholder="{{ search_placeholder|default:'Buscar...' }}">
@@ -25,8 +33,15 @@
     </form>
     {% endblock %}
 
-    <div style="overflow-x: auto;">
-        <table class="table">
+    {% if page_obj %}
+    <div class="catalog-results" aria-live="polite">
+        <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+        <span>{{ page_obj.paginator.count }} resultado{% if page_obj.paginator.count != 1 %}s{% endif %}</span>
+    </div>
+    {% endif %}
+
+    <div class="catalog-table-wrap">
+        <table class="table catalog-table">
             <thead>
                 {% block table_head %}{% endblock %}
             </thead>
@@ -37,17 +52,25 @@
     </div>
 
     {% if is_paginated %}
-    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem;">
+    <nav class="pagination catalog-pagination" aria-label="Paginación de resultados">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if pagination_query %}&{{ pagination_query }}{% elif query %}&q={{ query|urlencode }}{% endif %}" class="btn-action" style="padding: 0.5rem 1rem; border-radius: 6px;">&laquo; Anterior</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if pagination_query %}&{{ pagination_query }}{% elif query %}&q={{ query|urlencode }}{% endif %}" class="catalog-page-link">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Anterior
+        </a>
+        {% else %}
+        <span></span>
         {% endif %}
-        <span style="color: var(--text-muted); align-self: center; font-size: 0.9rem;">
+        <span class="pagination-info">
             Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
         </span>
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if pagination_query %}&{{ pagination_query }}{% elif query %}&q={{ query|urlencode }}{% endif %}" class="btn-action" style="padding: 0.5rem 1rem; border-radius: 6px;">Siguiente &raquo;</a>
+        <a href="?page={{ page_obj.next_page_number }}{% if pagination_query %}&{{ pagination_query }}{% elif query %}&q={{ query|urlencode }}{% endif %}" class="catalog-page-link">
+            Siguiente <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </a>
+        {% else %}
+        <span></span>
         {% endif %}
-    </div>
+    </nav>
     {% endif %}
 </div>
 {% endblock %}

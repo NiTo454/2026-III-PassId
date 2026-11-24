@@ -3,23 +3,30 @@
 {% block title %}Solicitudes de asistencia | PassID{% endblock %}
 
 {% block content %}
-<section class="page-header">
+<section class="academic-progress-page">
+<header class="page-header">
     <div>
+        <p class="catalog-eyebrow"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i> Atención académica</p>
         <h1 class="page-title">Solicitudes de asistencia</h1>
         <p class="page-subtitle">Alumnos que reportaron tres fallos al enviar su ubicación.</p>
     </div>
-</section>
+</header>
 
-<div class="glass-card table-responsive">
-    <table class="table">
+<section class="glass-card academic-detail-section">
+    <div class="academic-detail-section-heading">
+        <h2>Solicitudes pendientes</h2>
+        <span class="badge-role">{{ incidencias|length }} pendientes</span>
+    </div>
+    <div class="table-responsive">
+    <table class="table catalog-table">
         <thead>
             <tr>
-                <th>Alumno</th>
-                <th>Clase</th>
-                <th>Fecha</th>
-                <th>Intentos</th>
-                <th>Motivos reportados</th>
-                <th>Acción</th>
+                <th scope="col">Alumno</th>
+                <th scope="col">Clase</th>
+                <th scope="col">Fecha</th>
+                <th scope="col">Intentos</th>
+                <th scope="col">Motivos reportados</th>
+                <th scope="col">Acción</th>
             </tr>
         </thead>
         <tbody>
@@ -34,14 +41,26 @@
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="incidencia_id" value="{{ incidencia.pk }}">
-                        <button type="submit" class="btn-primary">Registrar asistencia manual</button>
+                        <button type="submit" class="btn-submit academic-incident-submit">
+                            <i class="fa-solid fa-check" aria-hidden="true"></i> Registrar asistencia
+                        </button>
                     </form>
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="6" class="table-empty">No hay solicitudes pendientes.</td></tr>
+            <tr>
+                <td colspan="6">
+                    <div class="academic-empty-state academic-empty-state-compact">
+                        <span class="academic-empty-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+                        <strong>No hay solicitudes pendientes</strong>
+                        <p>Las solicitudes de asistencia aparecerán aquí.</p>
+                    </div>
+                </td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+</section>
+</section>
 {% endblock %}

@@ -1,83 +1,86 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}Aula {{ aula.codigo }} - PassID{% endblock %}
 
 {% block content %}
-<div class="main-container">
-    <div class="page-header">
+<section class="academic-detail-page">
+    <header class="page-header academic-detail-heading">
         <div>
-            <h2 class="page-title">Detalles del Aula: {{ aula.codigo }}</h2>
+            <p class="catalog-eyebrow"><i class="fa-solid fa-building" aria-hidden="true"></i> Espacios académicos</p>
+            <h1 class="page-title">Aula {{ aula.codigo }}</h1>
+            <p class="page-subtitle">Información del espacio y sus horarios asignados.</p>
         </div>
-        <div class="actions">
-            {% if user.is_superuser or perms.aula.change_aula %}<a href="{% url 'academico:aula_update' aula.pk %}" class="btn-action btn-edit" title="Editar">
-                <i class="fa-solid fa-pen"></i>
-            </a>{% endif %}
-            {% if user.is_superuser or perms.aula.delete_aula %}<a href="{% url 'academico:aula_delete' aula.pk %}" class="btn-action btn-delete" title="Eliminar">
-                <i class="fa-solid fa-trash"></i>
-            </a>{% endif %}
-            <a href="{% url 'academico:aula_list' %}" class="btn-cancel">
-                <i class="fa-solid fa-arrow-left"></i> Regresar
+        <nav class="page-actions" aria-label="Acciones del aula">
+            {% if user.is_superuser or perms.aula.change_aula %}
+            <a href="{% url 'academico:aula_update' aula.pk %}" class="btn-action btn-edit" aria-label="Editar aula" title="Editar aula">
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
             </a>
+            {% endif %}
+            {% if user.is_superuser or perms.aula.delete_aula %}
+            <a href="{% url 'academico:aula_delete' aula.pk %}" class="btn-action btn-delete" aria-label="Eliminar aula" title="Eliminar aula">
+                <i class="fa-solid fa-trash" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+            <a href="{% url 'academico:aula_list' %}" class="btn-cancel">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Volver a aulas
+            </a>
+        </nav>
+    </header>
+
+    <section class="glass-card" aria-label="Información del aula">
+        <div class="academic-detail-grid">
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Edificio</span>
+                <strong class="academic-detail-value">{{ aula.edificio|default:"No especificado" }}</strong>
+            </div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Tipo de espacio</span>
+                <strong class="academic-detail-value">{{ aula.get_tipo_display }}</strong>
+            </div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Capacidad</span>
+                <strong class="academic-detail-value">{% if aula.capacidad %}{{ aula.capacidad }} personas{% else %}No especificada{% endif %}</strong>
+            </div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Estado</span>
+                {% if aula.activa %}
+                <span class="badge-status badge-active">Activa</span>
+                {% else %}
+                <span class="badge-status badge-inactive">Inactiva</span>
+                {% endif %}
+            </div>
         </div>
-    </div>
+    </section>
 
-    <div class="glass-card messages">
-        <div class="grid-2" style="padding: 2.5rem;">
-            <div>
-                <span class="form-label">CÓDIGO DEL AULA</span>
-                <div class="form-title">{{ aula.codigo }}</div>
-            </div>
-            <div>
-                <span class="form-label">EDIFICIO / UBICACIÓN</span>
-                <div class="form-title">{{ aula.edificio|default:"No especificado" }}</div>
-            </div>
-            <div>
-                <span class="form-label">TIPO DE ESPACIO</span>
-                <div class="form-title">{{ aula.tipo|default:"Estándar" }}</div>
-            </div>
-             <div>
-                <span class="form-label">ESTADO</span>
-                <div class="messages">
-                     <span class="badge-status badge-active">Disponible</span>
-                </div>
-            </div>
+    <section class="glass-card academic-detail-section" aria-labelledby="aula-horarios-title">
+        <div class="academic-detail-section-heading">
+            <h2 id="aula-horarios-title">Horarios asignados</h2>
+            <span class="badge-role">{{ horarios.count }} horarios</span>
         </div>
-    </div>
-
-    <div class="page-header">
-        <h3 class="page-title">
-            <i class="fa-solid fa-clock"></i> Horarios asignados 
-            <span class="badge-role">{{ horarios.count }}</span>
-        </h3>
-    </div>
-
-    <div class="glass-card">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>DÍA <i class="fa-solid fa-sort"></i></th>
-                    <th>HORA INICIO <i class="fa-solid fa-sort"></i></th>
-                    <th>HORA FIN <i class="fa-solid fa-sort"></i></th>
-                    <th>MATERIA <i class="fa-solid fa-sort"></i></th>
-                    <th>PROFESOR <i class="fa-solid fa-sort"></i></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for h in horarios %}
-                <tr>
-                    <td><span class="badge-role">{{ h.dia_semana }}</span></td>
-                    <td>{{ h.hora_inicio|time:"H:i" }}</td>
-                    <td>{{ h.hora_fin|time:"H:i" }}</td>
-                    <td>{{ h.materia.nombre }}</td>
-                    <td>{{ h.profesor.nombre|default:h.profesor.username }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="page-subtitle text-center">
-                        No hay horarios asignados a este espacio actualmente.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+        <div class="catalog-table-wrap">
+            <table class="table catalog-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Día</th>
+                        <th scope="col">Horario</th>
+                        <th scope="col">Materia</th>
+                        <th scope="col">Docente</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for horario in horarios %}
+                    <tr>
+                        <td>{{ horario.get_dia_semana_display }}</td>
+                        <td>{{ horario.hora_inicio|time:"H:i" }}–{{ horario.hora_fin|time:"H:i" }}</td>
+                        <td><strong>{{ horario.materia.nombre }}</strong></td>
+                        <td>{{ horario.profesor.nombre|default:horario.profesor.username }} {{ horario.profesor.apaterno|default:"" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">Este espacio aún no tiene horarios asignados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>
 {% endblock %}

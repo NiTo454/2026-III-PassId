@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - PassID{% endblock %}
+
+{% block content %}
+<section class="academic-bulk-page">
+    <header class="page-header academic-bulk-heading">
+        <div>
+            <p class="catalog-eyebrow"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Gestión académica</p>
+            <h1 class="page-title">{{ title }}</h1>
+            <p class="page-subtitle">{{ subtitle }}</p>
+        </div>
+        <a href="{{ cancel_url }}" class="btn-cancel academic-bulk-back">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Volver al catálogo
+        </a>
+    </header>
+
+    <form method="post" class="academic-bulk-form">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        {% if formset.non_form_errors %}
+        <div class="alert alert-error" role="alert">
+            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+            <div>{% for error in formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        </div>
+        {% endif %}
+
+        <div
+            class="academic-bulk-rows"
+            id="academic-bulk-rows"
+            data-bulk-formset
+            data-prefix="records"
+        >
+            {% for form in formset.forms %}
+            {% include "academico/partials/bulk_form_row.html" with row_number=forloop.counter %}
+            {% endfor %}
+        </div>
+
+        <template id="academic-bulk-empty-row">
+            {% include "academico/partials/bulk_form_row.html" with form=formset.empty_form row_number="__prefix__" %}
+        </template>
+
+        <div class="academic-bulk-toolbar">
+            <div>
+                <p class="academic-bulk-count" aria-live="polite">
+                    <strong id="academic-bulk-visible-count">{{ formset.forms|length }}</strong>
+                    filas visibles · máximo {{ max_records }}
+                </p>
+                <p class="academic-bulk-hint">Puedes quitar filas vacías y agregar las que necesites antes de guardar.</p>
+            </div>
+            <button type="button" class="btn-cancel academic-bulk-add" data-add-row>
+                <i class="fa-solid fa-plus" aria-hidden="true"></i> Agregar otra fila
+            </button>
+        </div>
+
+        <footer class="academic-bulk-footer">
+            <a href="{{ cancel_url }}" class="btn-cancel">Cancelar</a>
+            <button type="submit" class="btn-submit">
+                <i class="fa-solid fa-check" aria-hidden="true"></i> Guardar {{ record_label }}
+            </button>
+        </footer>
+    </form>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/academic-forms.js' %}" defer></script>
+{% endblock %}

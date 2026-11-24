@@ -1,53 +1,63 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}Materia {{ materia.clave }} - PassID{% endblock %}
 
 {% block content %}
-<div class="main-container">
-    <div class="page-header">
+<section class="academic-detail-page">
+    <header class="page-header academic-detail-heading">
         <div>
-            <h2 class="page-title">Detalles de la Materia: {{ materia.clave }}</h2>
+            <p class="catalog-eyebrow"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Catálogo de materias</p>
+            <h1 class="page-title">{{ materia.nombre }}</h1>
+            <p class="page-subtitle">Clave {{ materia.clave }} · {{ materia.carrera.nombre|default:"Materia común" }}</p>
         </div>
-        <div class="actions">
-            {% if user.is_superuser or perms.materia.change_materia %}<a href="{% url 'academico:materia_update' materia.pk %}" class="btn-action btn-edit" title="Editar">
-                <i class="fa-solid fa-pen"></i>
-            </a>{% endif %}
-            {% if user.is_superuser or perms.materia.delete_materia %}<a href="{% url 'academico:materia_delete' materia.pk %}" class="btn-action btn-delete" title="Eliminar">
-                <i class="fa-solid fa-trash"></i>
-            </a>{% endif %}
-            <a href="{% url 'academico:materia_list' %}" class="btn-cancel">
-                <i class="fa-solid fa-arrow-left"></i> Regresar
+        <nav class="page-actions" aria-label="Acciones de la materia">
+            {% if user.is_superuser or perms.materia.change_materia %}
+            <a href="{% url 'academico:materia_update' materia.pk %}" class="btn-action btn-edit" aria-label="Editar materia" title="Editar materia">
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
             </a>
-        </div>
-    </div>
+            {% endif %}
+            {% if user.is_superuser or perms.materia.delete_materia %}
+            <a href="{% url 'academico:materia_delete' materia.pk %}" class="btn-action btn-delete" aria-label="Eliminar materia" title="Eliminar materia">
+                <i class="fa-solid fa-trash" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+            <a href="{% url 'academico:materia_list' %}" class="btn-cancel">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Volver a materias
+            </a>
+        </nav>
+    </header>
 
-    <div class="glass-card">
-        <div class="grid-2" style="padding: 2.5rem;">
-            <div>
-                <span class="form-label">CLAVE</span>
-                <div class="form-title">{{ materia.clave }}</div>
+    <section class="glass-card" aria-label="Información de la materia">
+        <div class="academic-detail-grid">
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Clave</span>
+                <strong class="academic-detail-value">{{ materia.clave }}</strong>
             </div>
-            <div>
-                <span class="form-label">NOMBRE DE LA ASIGNATURA</span>
-                <div class="form-title">{{ materia.nombre }}</div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Carrera</span>
+                <strong class="academic-detail-value">{{ materia.carrera.nombre|default:"Común / Tronco" }}</strong>
             </div>
-            <div>
-                <span class="form-label">CARRERA ASOCIADA</span>
-                <div class="form-title">{{ materia.carrera.nombre }}</div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Periodo / cuatrimestre</span>
+                <strong class="academic-detail-value">{{ materia.periodo|default:"No especificado" }}</strong>
             </div>
-            <div>
-                <span class="form-label">PERIODO / CUATRIMESTRE</span>
-                <div class="form-title">{{ materia.periodo|default:"No especificado" }}</div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Horas semanales</span>
+                <strong class="academic-detail-value">{{ materia.horas_semana }} hrs</strong>
             </div>
-            <div>
-                <span class="form-label">CRÉDITOS / HORAS</span>
-                <div class="form-title">{{ materia.creditos|default:"0" }}</div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Asistencias mínimas</span>
+                <strong class="academic-detail-value">{{ materia.asistencias }}</strong>
             </div>
-            <div>
-                <span class="form-label">ESTADO</span>
-                <div class="messages">
-                     <span class="badge-status badge-active">Activa</span>
-                </div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Estado</span>
+                {% if materia.activa %}
+                <span class="badge-status badge-active">Activa</span>
+                {% else %}
+                <span class="badge-status badge-inactive">Inactiva</span>
+                {% endif %}
             </div>
         </div>
-    </div>
-</div>
+    </section>
+</section>
 {% endblock %}

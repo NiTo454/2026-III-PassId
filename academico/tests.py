@@ -1,11 +1,107 @@
+from io import BytesIO
 import pymysql
 from unittest.mock import MagicMock, patch
 from django.contrib.auth.hashers import make_password
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
 from usuarios.models import Perfil, Permiso, Usuario
 from .models import Aula, Carrera, Horario, Inscripcion, Materia, ProfesorDisponibilidad
+
+
+class InscripcionImportTests(TestCase):
+    def setUp(self):
+        self.alumno = Usuario.objects.create_user(
+            username="alumno_carga_masiva",
+            email="alumno-carga-masiva@example.invalid",
+            password="test-password",
+            matricula="MAT-ALUMNO-01",
+            whatsapp="",
+            grupo="A",
+        )
+        carrera = Carrera.objects.create(clave="CARGA", nombre="Carrera de carga")
+        self.materia_a = Materia.objects.create(
+            clave="CARGA-01",
+            nombre="Materia de carga 1",
+            carrera=carrera,
+        )
+        self.materia_b = Materia.objects.create(
+            clave="CARGA-02",
+            nombre="Materia de carga 2",
+            carrera=carrera,
+        )
+
+    def test_csv_import_creates_many_enrollments_skips_existing_and_reports_errors(self):
+        Inscripcion.objects.create(
+            usuario=self.alumno,
+            materia=self.materia_b,
+            grupo="A",
+            periodo="2026-3",
+            activa=False,
+        )
+        archivo = SimpleUploadedFile(
+            "inscripciones.csv",
+            (
+                "matricula,clave_materia,grupo,periodo,activa\n"
+                "MAT-ALUMNO-01,CARGA-01,A,2026-3,si\n"
+                "MAT-ALUMNO-01,CARGA-02,A,2026-3,si\n"
+                "MAT-ALUMNO-01,NO-EXISTE,A,2026-3,si\n"
+            ).encode("utf-8"),
+        )
+
+        from .importacion_inscripciones import import_inscripciones
+        report = import_inscripciones(archivo)
+
+        self.assertEqual(report["created_count"], 1)
+        self.assertEqual(report["skipped_count"], 1)
+        self.assertEqual(report["error_count"], 1)
+        self.assertEqual(Inscripcion.objects.count(), 2)
+        self.assertFalse(
+            Inscripcion.objects.get(materia=self.materia_b).activa
+        )
+
+    def test_xlsx_import_accepts_boolean_and_creates_enrollment(self):
+        from openpyxl import Workbook
+        from .importacion_inscripciones import import_inscripciones
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.append(["matricula", "clave_materia", "grupo", "periodo", "activa"])
+        worksheet.append(["MAT-ALUMNO-01", "CARGA-01", "A", "2026-3", True])
+        content = BytesIO()
+        workbook.save(content)
+        archivo = SimpleUploadedFile(
+            "inscripciones.xlsx",
+            content.getvalue(),
+            content_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+        )
+
+        report = import_inscripciones(archivo)
+
+        self.assertEqual(report["created_count"], 1)
+        self.assertTrue(
+            Inscripcion.objects.get(materia=self.materia_a).activa
+        )
+
+    def test_inscripcion_list_exposes_bulk_import_and_csv_template_actions(self):
+        admin = Usuario.objects.create_superuser(
+            username="admin_carga_masiva",
+            email="admin-carga-masiva@example.invalid",
+            password="test-password",
+            whatsapp="",
+            grupo="",
+        )
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse("academico:inscripcion_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("academico:inscripcion_import"))
+        self.assertContains(response, reverse("academico:inscripcion_template"))
 
 
 class AcademicCatalogFilterTests(TestCase):
@@ -518,6 +614,7 @@ class DisponibilidadDocenteTests(TestCase):
             ).exists()
         )
 
+
     def test_admin_day_shortcut_keeps_selected_admin_account(self):
         self.client.force_login(self.admin)
 
@@ -909,4 +1006,130 @@ class ImportarCatalogosLegacyCommandTests(TestCase):
             call_command("importar_catalogos_legacy", stdout=out)
 
         self.assertIn("Error al conectar con la base de datos Pasaporte2", str(ctx.exception))
+
+
+class AcademicBulkCreateTests(TestCase):
+    def setUp(self):
+        admin = Usuario.objects.create_superuser(
+            username="academic_bulk_admin",
+            email="academic-bulk-admin@example.invalid",
+            password="test-password",
+            whatsapp="",
+            grupo="",
+        )
+        self.client.force_login(admin)
+
+    @staticmethod
+    def management_data(total_forms):
+        return {
+            "records-TOTAL_FORMS": str(total_forms),
+            "records-INITIAL_FORMS": "0",
+            "records-MIN_NUM_FORMS": "0",
+            "records-MAX_NUM_FORMS": "100",
+        }
+
+    def test_create_view_renders_batch_form_and_add_row_template(self):
+        response = self.client.get(reverse("academico:materia_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "id_records-TOTAL_FORMS")
+        self.assertContains(response, "data-add-row")
+        self.assertContains(response, "academic-bulk-empty-row")
+
+    def test_create_view_saves_multiple_careers_in_one_post(self):
+        response = self.client.post(
+            reverse("academico:carrera_create"),
+            {
+                **self.management_data(2),
+                "records-0-clave": "BATCH-01",
+                "records-0-nombre": "Carrera por lote 1",
+                "records-0-activa": "on",
+                "records-1-clave": "BATCH-02",
+                "records-1-nombre": "Carrera por lote 2",
+                "records-1-activa": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("academico:carrera_list"))
+        self.assertEqual(
+            list(Carrera.objects.order_by("clave").values_list("clave", flat=True)),
+            ["BATCH-01", "BATCH-02"],
+        )
+
+    def test_duplicate_rows_keep_batch_unsaved_and_show_validation_errors(self):
+        response = self.client.post(
+            reverse("academico:carrera_create"),
+            {
+                **self.management_data(2),
+                "records-0-clave": "BATCH-DUP",
+                "records-0-nombre": "Primera carrera",
+                "records-0-activa": "on",
+                "records-1-clave": "BATCH-DUP",
+                "records-1-nombre": "Carrera duplicada",
+                "records-1-activa": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Carrera.objects.count(), 0)
+        self.assertTrue(response.context["formset"].non_form_errors())
+
+    def test_create_multiple_enrollments_for_a_student_in_one_post(self):
+        alumno = Usuario.objects.create_user(
+            username="academic_bulk_student",
+            email="academic-bulk-student@example.invalid",
+            password="test-password",
+            matricula="BULK-STUDENT",
+            whatsapp="",
+            grupo="A",
+        )
+        materia_a = Materia.objects.create(clave="BULK-MAT-01", nombre="Materia 1")
+        materia_b = Materia.objects.create(clave="BULK-MAT-02", nombre="Materia 2")
+
+        page = self.client.get(reverse("academico:inscripcion_create"))
+        self.assertContains(page, f"{alumno.matricula} · {alumno}")
+
+        response = self.client.post(
+            reverse("academico:inscripcion_create"),
+            {
+                **self.management_data(2),
+                "records-0-usuario": str(alumno.pk),
+                "records-0-materia": str(materia_a.pk),
+                "records-0-grupo": "A",
+                "records-0-periodo": "2026-3",
+                "records-0-activa": "on",
+                "records-1-usuario": str(alumno.pk),
+                "records-1-materia": str(materia_b.pk),
+                "records-1-grupo": "A",
+                "records-1-periodo": "2026-3",
+                "records-1-activa": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("academico:inscripcion_list"))
+        self.assertEqual(
+            set(
+                Inscripcion.objects.filter(usuario=alumno).values_list(
+                    "materia_id", flat=True
+                )
+            ),
+            {materia_a.pk, materia_b.pk},
+        )
+
+    def test_bulk_create_preserves_add_permission(self):
+        self.client.force_login(
+            Usuario.objects.create_user(
+                username="academic_bulk_no_permission",
+                email="academic-bulk-no-permission@example.invalid",
+                password="test-password",
+                whatsapp="",
+                grupo="",
+            )
+        )
+
+        response = self.client.get(reverse("academico:carrera_create"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("home"))
+        self.assertEqual(Carrera.objects.count(), 0)
 

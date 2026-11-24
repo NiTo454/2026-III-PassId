@@ -1,5 +1,16 @@
 {% extends 'common/list_base.html' %}
 
+{% block header_actions %}
+{% if can_create %}
+<a href="{{ template_url }}" class="btn-cancel">
+    <i class="fa-solid fa-download" aria-hidden="true"></i> Plantilla CSV
+</a>
+<a href="{{ import_url }}" class="btn-create">
+    <i class="fa-solid fa-file-import" aria-hidden="true"></i> Carga masiva
+</a>
+{% endif %}
+{% endblock %}
+
 {% block search_form %}
 <form method="get" class="filter-grid filter-grid--embedded">
     <div class="form-group filter-search-field">

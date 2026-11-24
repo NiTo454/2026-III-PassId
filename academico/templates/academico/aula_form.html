@@ -1,42 +1,42 @@
 {% extends 'common/form_base.html' %}
 
 {% block form_fields %}
-<div class="grid-2">
+<div class="grid-2 catalog-form-grid">
     <div class="form-group">
         <label class="form-label" for="{{ form.codigo.id_for_label }}">{{ form.codigo.label }}</label>
         {{ form.codigo }}
         {% for error in form.codigo.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
     <div class="form-group">
         <label class="form-label" for="{{ form.edificio.id_for_label }}">{{ form.edificio.label }}</label>
         {{ form.edificio }}
         {% for error in form.edificio.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
 </div>
 
-<div class="grid-2">
+<div class="grid-2 catalog-form-grid">
     <div class="form-group">
         <label class="form-label" for="{{ form.capacidad.id_for_label }}">{{ form.capacidad.label }}</label>
         {{ form.capacidad }}
         {% for error in form.capacidad.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
     <div class="form-group">
         <label class="form-label" for="{{ form.tipo.id_for_label }}">{{ form.tipo.label }}</label>
         {{ form.tipo }}
         {% for error in form.tipo.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
 </div>
 
-<div class="form-group" style="margin-top: 1rem;">
-    <label class="checkbox-item">
+<div class="form-group catalog-form-status">
+    <label class="checkbox-item catalog-status-toggle">
         {{ form.activa }} {{ form.activa.label }}
     </label>
 </div>

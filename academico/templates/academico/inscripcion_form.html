@@ -1,42 +1,42 @@
 {% extends 'common/form_base.html' %}
 
 {% block form_fields %}
-<div class="grid-2">
+<div class="grid-2 catalog-form-grid">
     <div class="form-group">
         <label class="form-label" for="{{ form.usuario.id_for_label }}">{{ form.usuario.label }}</label>
         {{ form.usuario }}
         {% for error in form.usuario.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
     <div class="form-group">
         <label class="form-label" for="{{ form.materia.id_for_label }}">{{ form.materia.label }}</label>
         {{ form.materia }}
         {% for error in form.materia.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
 </div>
 
-<div class="grid-2">
+<div class="grid-2 catalog-form-grid">
     <div class="form-group">
         <label class="form-label" for="{{ form.grupo.id_for_label }}">{{ form.grupo.label }}</label>
         {{ form.grupo }}
         {% for error in form.grupo.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
     <div class="form-group">
         <label class="form-label" for="{{ form.periodo.id_for_label }}">{{ form.periodo.label }}</label>
         {{ form.periodo }}
         {% for error in form.periodo.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
 </div>
 
-<div class="form-group" style="margin-top: 1rem;">
-    <label class="checkbox-item">
+<div class="form-group catalog-form-status">
+    <label class="checkbox-item catalog-status-toggle">
         {{ form.activa }} {{ form.activa.label }}
     </label>
 </div>

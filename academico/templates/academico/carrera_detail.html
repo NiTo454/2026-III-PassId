@@ -1,83 +1,86 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}{{ carrera.nombre }} - PassID{% endblock %}
 
 {% block content %}
-<div class="main-container">
-    <div class="page-header">
+<section class="academic-detail-page">
+    <header class="page-header academic-detail-heading">
         <div>
-            <h2 class="page-title">Detalles de la Carrera: {{ carrera.clave }}</h2>
+            <p class="catalog-eyebrow"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Catálogo académico</p>
+            <h1 class="page-title">{{ carrera.nombre }}</h1>
+            <p class="page-subtitle">Clave {{ carrera.clave }}</p>
         </div>
-        <div class="actions">
-            {% if user.is_superuser or perms.carrera.change_carrera %}<a href="{% url 'academico:carrera_update' carrera.pk %}" class="btn-action btn-edit" title="Editar">
-                <i class="fa-solid fa-pen"></i>
-            </a>{% endif %}
-            {% if user.is_superuser or perms.carrera.delete_carrera %}<a href="{% url 'academico:carrera_delete' carrera.pk %}" class="btn-action btn-delete" title="Eliminar">
-                <i class="fa-solid fa-trash"></i>
-            </a>{% endif %}
-            <a href="{% url 'academico:carrera_list' %}" class="btn-cancel">
-                <i class="fa-solid fa-arrow-left"></i> Regresar
+        <nav class="page-actions" aria-label="Acciones de la carrera">
+            {% if user.is_superuser or perms.carrera.change_carrera %}
+            <a href="{% url 'academico:carrera_update' carrera.pk %}" class="btn-action btn-edit" aria-label="Editar carrera" title="Editar carrera">
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
             </a>
+            {% endif %}
+            {% if user.is_superuser or perms.carrera.delete_carrera %}
+            <a href="{% url 'academico:carrera_delete' carrera.pk %}" class="btn-action btn-delete" aria-label="Eliminar carrera" title="Eliminar carrera">
+                <i class="fa-solid fa-trash" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+            <a href="{% url 'academico:carrera_list' %}" class="btn-cancel">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Volver a carreras
+            </a>
+        </nav>
+    </header>
+
+    <section class="glass-card" aria-label="Información de la carrera">
+        <div class="academic-detail-grid">
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Clave de carrera</span>
+                <strong class="academic-detail-value">{{ carrera.clave }}</strong>
+            </div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Estado</span>
+                {% if carrera.activa %}
+                <span class="badge-status badge-active">Activa</span>
+                {% else %}
+                <span class="badge-status badge-inactive">Inactiva</span>
+                {% endif %}
+            </div>
         </div>
-    </div>
+    </section>
 
-    <div class="glass-card messages">
-        <div class="grid-2" style="padding: 2.5rem;"> 
-            <div>
-                <span class="form-label">CLAVE DE LA CARRERA</span>
-                <div class="form-title">{{ carrera.clave }}</div>
-            </div>
-            <div>
-                <span class="form-label">NOMBRE</span>
-                <div class="form-title">{{ carrera.nombre }}</div>
-            </div>
-            <div>
-                <span class="form-label">ESTADO</span>
-                <div class="messages">
-                    {% if carrera.activa %}
-                        <span class="badge-status badge-active">Activa</span>
-                    {% else %}
-                        <span class="badge-status badge-inactive">Inactiva</span>
-                    {% endif %}
-                </div>
-            </div>
+    <section class="glass-card academic-detail-section" aria-labelledby="carrera-materias-title">
+        <div class="academic-detail-section-heading">
+            <h2 id="carrera-materias-title">Materias vinculadas</h2>
+            <span class="badge-role">{{ materias.count }} materias</span>
         </div>
-    </div>
-
-    <div class="page-header">
-        <h3 class="page-title">
-            <i class="fa-solid fa-book"></i> Materias vinculadas 
-            <span class="badge-role">{{ materias.count }}</span>
-        </h3>
-    </div>
-
-    <div class="glass-card">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>CLAVE <i class="fa-solid fa-sort"></i></th>
-                    <th>NOMBRE <i class="fa-solid fa-sort"></i></th>
-                    <th>CRÉDITOS <i class="fa-solid fa-sort"></i></th>
-                    <th>PERIODO <i class="fa-solid fa-sort"></i></th>
-                    <th>ESTADO <i class="fa-solid fa-sort"></i></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for m in materias %}
-                <tr>
-                    <td>{{ m.clave }}</td>
-                    <td>{{ m.nombre }}</td>
-                    <td>{{ m.creditos|default:"0" }}</td>
-                    <td>{{ m.periodo|default:"—" }}</td>
-                    <td><span class="badge-status badge-active">Activa</span></td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="page-subtitle text-center">
-                        No se encontraron materias registradas para esta carrera.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+        <div class="catalog-table-wrap">
+            <table class="table catalog-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Clave</th>
+                        <th scope="col">Materia</th>
+                        <th scope="col">Horas semanales</th>
+                        <th scope="col">Periodo</th>
+                        <th scope="col">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for materia in materias %}
+                    <tr>
+                        <td><strong>{{ materia.clave }}</strong></td>
+                        <td>{{ materia.nombre }}</td>
+                        <td>{{ materia.horas_semana }} hrs</td>
+                        <td>{{ materia.periodo|default:"—" }}</td>
+                        <td>
+                            {% if materia.activa %}
+                            <span class="badge-status badge-active">Activa</span>
+                            {% else %}
+                            <span class="badge-status badge-inactive">Inactiva</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">Esta carrera aún no tiene materias vinculadas.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>
 {% endblock %}

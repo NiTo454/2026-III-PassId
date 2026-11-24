@@ -6,7 +6,8 @@ from .views import (
     HorarioListView, HorarioCreateView, HorarioUpdateView, HorarioDeleteView,
     InscripcionListView, InscripcionCreateView, InscripcionUpdateView, 
     InscripcionDeleteView, InscripcionDetailView, CarreraDetailView, 
-    AulaDetailView, MateriaDetailView, HorarioDetailView, ProgresoAsistenciaView,
+    AulaDetailView, MateriaDetailView, HorarioDetailView, InscripcionImportView,
+    InscripcionPlantillaView, ProgresoAsistenciaView,
     CargaAcademicaView, DisponibilidadDocenteView,
 )
 
@@ -43,6 +44,8 @@ urlpatterns = [
 
     # Inscripciones
     path("inscripciones/", InscripcionListView.as_view(), name="inscripcion_list"),
+    path("inscripciones/plantilla.csv", InscripcionPlantillaView.as_view(), name="inscripcion_template"),
+    path("inscripciones/importar/", InscripcionImportView.as_view(), name="inscripcion_import"),
     path("inscripciones/crear/", InscripcionCreateView.as_view(), name="inscripcion_create"),
     path("inscripciones/<int:pk>/editar/", InscripcionUpdateView.as_view(), name="inscripcion_update"),
     path("inscripciones/<int:pk>/eliminar/", InscripcionDeleteView.as_view(), name="inscripcion_delete"),

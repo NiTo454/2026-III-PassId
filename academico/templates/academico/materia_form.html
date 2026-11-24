@@ -1,59 +1,59 @@
 {% extends 'common/form_base.html' %}
 
 {% block form_fields %}
-<div class="grid-2">
+<div class="grid-2 catalog-form-grid">
     <div class="form-group">
         <label class="form-label" for="{{ form.clave.id_for_label }}">{{ form.clave.label }}</label>
         {{ form.clave }}
         {% for error in form.clave.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
     <div class="form-group">
         <label class="form-label" for="{{ form.nombre.id_for_label }}">{{ form.nombre.label }}</label>
         {{ form.nombre }}
         {% for error in form.nombre.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
 </div>
 
-<div class="grid-2">
+<div class="grid-2 catalog-form-grid">
     <div class="form-group">
         <label class="form-label" for="{{ form.carrera.id_for_label }}">{{ form.carrera.label }}</label>
         {{ form.carrera }}
         {% for error in form.carrera.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
     <div class="form-group">
         <label class="form-label" for="{{ form.periodo.id_for_label }}">{{ form.periodo.label }}</label>
         {{ form.periodo }}
         {% for error in form.periodo.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
 </div>
 
-<div class="grid-2">
+<div class="grid-2 catalog-form-grid">
     <div class="form-group">
         <label class="form-label" for="{{ form.horas_semana.id_for_label }}">{{ form.horas_semana.label }}</label>
         {{ form.horas_semana }}
         {% for error in form.horas_semana.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
     <div class="form-group">
         <label class="form-label" for="{{ form.asistencias.id_for_label }}">{{ form.asistencias.label }}</label>
         {{ form.asistencias }}
         {% for error in form.asistencias.errors %}
-        <p style="color: #f87171; font-size: 0.85rem; margin-top: 0.25rem;">{{ error }}</p>
+        <p class="field-error" role="alert">{{ error }}</p>
         {% endfor %}
     </div>
 </div>
 
-<div class="form-group" style="margin-top: 1rem;">
-    <label class="checkbox-item">
+<div class="form-group catalog-form-status">
+    <label class="checkbox-item catalog-status-toggle">
         {{ form.activa }} {{ form.activa.label }}
     </label>
 </div>

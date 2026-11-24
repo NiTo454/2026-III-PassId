@@ -1,0 +1,40 @@
+<article class="glass-card academic-bulk-row" data-form-row>
+    {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+    <header>
+        <h2 data-row-title>Registro {{ row_number }}</h2>
+        <button type="button" class="academic-bulk-remove" data-remove-row>
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            <span>Quitar fila</span>
+        </button>
+    </header>
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-error academic-bulk-form-error" role="alert">
+        {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <div class="academic-bulk-fields">
+        {% for field in form.visible_fields %}
+            {% if field.name != "DELETE" %}
+                {% if field.field.widget.input_type == "checkbox" %}
+                <div class="form-group academic-bulk-checkbox">
+                    <label class="checkbox-item" for="{{ field.id_for_label }}">
+                        {{ field }} <span>{{ field.label }}</span>
+                    </label>
+                    {% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+                </div>
+                {% else %}
+                <div class="form-group">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<small class="catalog-field-help">{{ field.help_text }}</small>{% endif %}
+                    {% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+                </div>
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="academic-bulk-delete-field" hidden>{{ form.DELETE }}</div>
+</article>

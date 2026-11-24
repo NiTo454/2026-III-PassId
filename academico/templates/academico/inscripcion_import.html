@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - PassID{% endblock %}
+
+{% block content %}
+<section class="enrollment-import-page">
+    <header class="page-header enrollment-import-heading">
+        <div>
+            <p class="enrollment-import-eyebrow">
+                <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Gestión académica
+            </p>
+            <h1 class="page-title">{{ title }}</h1>
+            <p class="page-subtitle">Registra muchas relaciones alumno-materia en una sola carga.</p>
+        </div>
+        <a href="{{ cancel_url }}" class="btn-cancel enrollment-import-back">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Volver a inscripciones
+        </a>
+    </header>
+
+    <div class="glass-card enrollment-import-card">
+        <section class="enrollment-import-instructions" aria-labelledby="enrollment-import-instructions-title">
+            <div class="enrollment-import-section-heading">
+                <span class="enrollment-import-icon">
+                    <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
+                </span>
+                <div>
+                    <h2 id="enrollment-import-instructions-title">Prepara tu archivo</h2>
+                    <p>Usa una fila por cada inscripción. Si un alumno lleva cinco materias, agrega cinco filas con su matrícula.</p>
+                </div>
+            </div>
+
+            <div class="enrollment-import-columns" aria-label="Columnas del archivo">
+                <span><code>matricula</code><small>Requerida</small></span>
+                <span><code>clave_materia</code><small>Requerida</small></span>
+                <span><code>grupo</code><small>Requerida</small></span>
+                <span><code>periodo</code><small>Requerida</small></span>
+                <span><code>activa</code><small>Opcional; sí por defecto</small></span>
+            </div>
+
+            <ul class="enrollment-import-notes">
+                <li>La matrícula y clave de materia deben existir en PassID.</li>
+                <li>Las inscripciones que ya existen se omiten; no se modifican.</li>
+                <li>En Excel, guarda la matrícula como texto para conservar ceros iniciales.</li>
+            </ul>
+
+            <a href="{% url 'academico:inscripcion_template' %}" class="enrollment-template-link">
+                <i class="fa-solid fa-download" aria-hidden="true"></i> Descargar plantilla CSV
+            </a>
+        </section>
+
+        <form method="post" enctype="multipart/form-data" class="enrollment-import-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label" for="{{ form.archivo.id_for_label }}">{{ form.archivo.label }}</label>
+                {{ form.archivo }}
+                <p class="enrollment-import-file-help">Formatos permitidos: CSV o Excel (.xlsx). Máximo 5 MB.</p>
+                {% for error in form.archivo.errors %}
+                <p class="field-error" role="alert">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% for error in form.non_field_errors %}
+            <p class="field-error" role="alert">{{ error }}</p>
+            {% endfor %}
+            <button type="submit" class="btn-submit enrollment-import-submit">
+                <i class="fa-solid fa-file-import" aria-hidden="true"></i> Procesar inscripciones
+            </button>
+        </form>
+
+        {% if report %}
+        <section class="enrollment-import-results" aria-live="polite" aria-labelledby="enrollment-import-results-title">
+            <h2 id="enrollment-import-results-title">Resultado de la carga</h2>
+            <div class="enrollment-import-summary">
+                <div class="enrollment-import-stat is-created">
+                    <strong>{{ report.created_count }}</strong><span>inscripciones creadas</span>
+                </div>
+                <div class="enrollment-import-stat is-skipped">
+                    <strong>{{ report.skipped_count }}</strong><span>ya existían</span>
+                </div>
+                <div class="enrollment-import-stat {% if report.error_count %}is-error{% else %}is-created{% endif %}">
+                    <strong>{{ report.error_count }}</strong><span>filas con error</span>
+                </div>
+            </div>
+            {% if report.errors %}
+            <details class="enrollment-import-errors" open>
+                <summary>Revisar errores por fila</summary>
+                <ul>
+                    {% for error in report.errors %}
+                    <li><strong>Fila {{ error.row }}:</strong> {{ error.detail }}</li>
+                    {% endfor %}
+                </ul>
+                {% if report.omitted_error_count %}
+                <p>Se omitieron {{ report.omitted_error_count }} errores adicionales de la vista.</p>
+                {% endif %}
+            </details>
+            {% endif %}
+        </section>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

@@ -1,9 +1,20 @@
+import csv
 from urllib.parse import urlencode
 
-from django.http import Http404
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
+from django.views import View
+from django.views.generic import (
+    DeleteView,
+    DetailView,
+    FormView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 from django.db.models import Count, F, Q, Value
 from django.db.models.functions import Lower, Replace
 from django.contrib import messages
@@ -18,13 +29,16 @@ from .models import (
 )
 from .forms import (
     AulaForm,
+    create_bulk_formset,
     CarreraForm,
     HorarioForm,
+    InscripcionImportForm,
     InscripcionForm,
     MateriaForm,
     ProfesorDisponibilidadForm,
 )
 from django.contrib.auth import get_user_model
+from .importacion_inscripciones import import_inscripciones
 
 
 def _catalog_filters(request, *field_names):
@@ -115,29 +129,69 @@ class CarreraListView(PassIdPermissionMixin, ListView):
         context["page_title"] = "Catálogo de Carreras"
         context["page_subtitle"] = "Gestión de planes de estudio y programas académicos"
         context["create_url"] = reverse_lazy("academico:carrera_create")
-        context["create_label"] = "Nueva Carrera"
+        context["create_label"] = "Agregar carreras"
         context["search_placeholder"] = "Buscar por clave o nombre de carrera..."
         return context
 
 
-class CarreraCreateView(PassIdPermissionMixin, CreateView):
-    model = Carrera
-    form_class = CarreraForm
-    template_name = "academico/carrera_form.html"
-    success_url = reverse_lazy("academico:carrera_list")
-    required_permission = "carrera.add_carrera"
+class AcademicBulkCreateView(PassIdPermissionMixin, TemplateView):
+    template_name = "academico/bulk_create.html"
+    model = None
+    formset_class = None
+    success_url = None
+    title = ""
+    subtitle = ""
+    record_label = "registros"
 
-    def form_valid(self, form):
-        messages.success(self.request, f"Carrera '{form.instance.nombre}' creada con éxito.")
-        return super().form_valid(form)
+    def get_formset(self, data=None, files=None):
+        return self.formset_class(
+            data=data,
+            files=files,
+            queryset=self.model.objects.none(),
+            prefix="records",
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["title"] = "Registrar Nueva Carrera"
-        context["subtitle"] = "Ingresa la clave y nombre oficial del programa académico"
-        context["button_text"] = "Guardar Carrera"
-        context["cancel_url"] = reverse_lazy("academico:carrera_list")
+        if "formset" not in context:
+            context["formset"] = self.get_formset()
+        context["title"] = self.title
+        context["subtitle"] = self.subtitle
+        context["record_label"] = self.record_label
+        context["cancel_url"] = self.success_url
+        context["max_records"] = 100
         return context
+
+    def post(self, request, *args, **kwargs):
+        formset = self.get_formset(request.POST, request.FILES)
+        if formset.is_valid():
+            try:
+                with transaction.atomic():
+                    created = formset.save()
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "La base de datos rechazó el lote. Revisa si hay claves o asignaciones repetidas e inténtalo de nuevo.",
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Se registraron {len(created)} {self.record_label} correctamente.",
+                )
+                return redirect(self.success_url)
+        return self.render_to_response(
+            self.get_context_data(formset=formset)
+        )
+
+
+class CarreraCreateView(AcademicBulkCreateView):
+    model = Carrera
+    formset_class = create_bulk_formset(Carrera, CarreraForm)
+    success_url = reverse_lazy("academico:carrera_list")
+    required_permission = "carrera.add_carrera"
+    title = "Agregar carreras"
+    subtitle = "Captura varias carreras y guarda el lote en una sola acción."
+    record_label = "carreras"
 
 
 class CarreraUpdateView(PassIdPermissionMixin, UpdateView):
@@ -236,29 +290,19 @@ class AulaListView(PassIdPermissionMixin, ListView):
         context["page_title"] = "Catálogo de Aulas y Espacios"
         context["page_subtitle"] = "Administración de aulas, laboratorios y auditorios"
         context["create_url"] = reverse_lazy("academico:aula_create")
-        context["create_label"] = "Nueva Aula"
+        context["create_label"] = "Agregar aulas"
         context["search_placeholder"] = "Buscar por código, edificio o tipo..."
         return context
 
 
-class AulaCreateView(PassIdPermissionMixin, CreateView):
+class AulaCreateView(AcademicBulkCreateView):
     model = Aula
-    form_class = AulaForm
-    template_name = "academico/aula_form.html"
+    formset_class = create_bulk_formset(Aula, AulaForm)
     success_url = reverse_lazy("academico:aula_list")
     required_permission = "aula.add_aula"
-
-    def form_valid(self, form):
-        messages.success(self.request, f"Aula '{form.instance.codigo}' registrada correctamente.")
-        return super().form_valid(form)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["title"] = "Registrar Nueva Aula"
-        context["subtitle"] = "Especifica el código, ubicación y tipo de espacio"
-        context["button_text"] = "Guardar Aula"
-        context["cancel_url"] = reverse_lazy("academico:aula_list")
-        return context
+    title = "Agregar aulas y espacios"
+    subtitle = "Registra varias aulas, laboratorios o auditorios en un solo envío."
+    record_label = "aulas"
 
 
 class AulaUpdateView(PassIdPermissionMixin, UpdateView):
@@ -364,29 +408,19 @@ class MateriaListView(PassIdPermissionMixin, ListView):
         context["page_title"] = "Catálogo de Materias"
         context["page_subtitle"] = "Listado general de asignaturas y planes de estudio"
         context["create_url"] = reverse_lazy("academico:materia_create")
-        context["create_label"] = "Nueva Materia"
+        context["create_label"] = "Agregar materias"
         context["search_placeholder"] = "Buscar por clave, nombre, periodo o carrera..."
         return context
 
 
-class MateriaCreateView(PassIdPermissionMixin, CreateView):
+class MateriaCreateView(AcademicBulkCreateView):
     model = Materia
-    form_class = MateriaForm
-    template_name = "academico/materia_form.html"
+    formset_class = create_bulk_formset(Materia, MateriaForm)
     success_url = reverse_lazy("academico:materia_list")
     required_permission = "materia.add_materia"
-
-    def form_valid(self, form):
-        messages.success(self.request, f"Materia '{form.instance.nombre}' creada con éxito.")
-        return super().form_valid(form)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["title"] = "Registrar Nueva Materia"
-        context["subtitle"] = "Configura la asignatura, horas y carrera asociada"
-        context["button_text"] = "Guardar Materia"
-        context["cancel_url"] = reverse_lazy("academico:materia_list")
-        return context
+    title = "Agregar materias"
+    subtitle = "Captura todas las asignaturas del plan y guarda el lote en una sola acción."
+    record_label = "materias"
 
 
 class MateriaUpdateView(PassIdPermissionMixin, UpdateView):
@@ -509,31 +543,21 @@ class HorarioListView(PassIdPermissionMixin, ListView):
         context["page_title"] = "Gestión de Horarios de Clases"
         context["page_subtitle"] = "Programación académica por grupo, aula y docente"
         context["create_url"] = reverse_lazy("academico:horario_create")
-        context["create_label"] = "Nuevo Horario"
+        context["create_label"] = "Agregar horarios"
         context["search_placeholder"] = (
             "Buscar por materia, profesor, aula, grupo o periodo..."
         )
         return context
 
 
-class HorarioCreateView(PassIdPermissionMixin, CreateView):
+class HorarioCreateView(AcademicBulkCreateView):
     model = Horario
-    form_class = HorarioForm
-    template_name = "academico/horario_form.html"
+    formset_class = create_bulk_formset(Horario, HorarioForm)
     success_url = reverse_lazy("academico:horario_list")
     required_permission = "horario.add_horario"
-
-    def form_valid(self, form):
-        messages.success(self.request, "Horario de clase asignado con éxito.")
-        return super().form_valid(form)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["title"] = "Asignar Nuevo Horario"
-        context["subtitle"] = "Asigna materia, docente, aula y bloque horario"
-        context["button_text"] = "Guardar Horario"
-        context["cancel_url"] = reverse_lazy("academico:horario_list")
-        return context
+    title = "Agregar horarios"
+    subtitle = "Programa varios bloques de clase y guárdalos en un solo envío."
+    record_label = "horarios"
 
 
 class HorarioUpdateView(PassIdPermissionMixin, UpdateView):
@@ -645,29 +669,58 @@ class InscripcionListView(PassIdPermissionMixin, ListView):
         context["page_title"] = "Inscripciones de Alumnos"
         context["page_subtitle"] = "Gestión de alumnos inscritos en materias y grupos"
         context["create_url"] = reverse_lazy("academico:inscripcion_create")
-        context["create_label"] = "Nueva Inscripción"
+        context["create_label"] = "Inscribir varios"
         context["search_placeholder"] = "Buscar por alumno, matrícula, materia, grupo o periodo..."
+        context["can_add_header_actions"] = context.get("can_create", False)
+        context["import_url"] = reverse_lazy("academico:inscripcion_import")
+        context["template_url"] = reverse_lazy("academico:inscripcion_template")
         return context
 
 
-class InscripcionCreateView(PassIdPermissionMixin, CreateView):
-    model = Inscripcion
-    form_class = InscripcionForm
-    template_name = "academico/inscripcion_form.html"
-    success_url = reverse_lazy("academico:inscripcion_list")
+class InscripcionPlantillaView(PassIdPermissionMixin, View):
+    required_permission = "inscripcion.add_inscripcion"
+
+    def get(self, request, *args, **kwargs):
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = (
+            'attachment; filename="plantilla_inscripciones.csv"'
+        )
+        response.write("\ufeff")
+        writer = csv.writer(response)
+        writer.writerow(["matricula", "clave_materia", "grupo", "periodo", "activa"])
+        return response
+
+
+class InscripcionImportView(PassIdPermissionMixin, FormView):
+    form_class = InscripcionImportForm
+    template_name = "academico/inscripcion_import.html"
     required_permission = "inscripcion.add_inscripcion"
 
     def form_valid(self, form):
-        messages.success(self.request, f"Alumno inscrito en '{form.instance.materia.nombre}' con éxito.")
-        return super().form_valid(form)
+        try:
+            report = import_inscripciones(form.cleaned_data["archivo"])
+        except ValidationError as error:
+            form.add_error("archivo", error)
+            return self.form_invalid(form)
+        return self.render_to_response(
+            self.get_context_data(form=form, report=report)
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["title"] = "Registrar Nueva Inscripción"
-        context["subtitle"] = "Inscribe a un alumno en una materia para el periodo actual"
-        context["button_text"] = "Guardar Inscripción"
+        context["title"] = "Carga masiva de inscripciones"
         context["cancel_url"] = reverse_lazy("academico:inscripcion_list")
         return context
+
+
+class InscripcionCreateView(AcademicBulkCreateView):
+    model = Inscripcion
+    formset_class = create_bulk_formset(Inscripcion, InscripcionForm)
+    success_url = reverse_lazy("academico:inscripcion_list")
+    required_permission = "inscripcion.add_inscripcion"
+    title = "Registrar inscripciones"
+    subtitle = "Agrega varias relaciones alumno-materia y guárdalas juntas."
+    record_label = "inscripciones"
 
 
 class InscripcionUpdateView(PassIdPermissionMixin, UpdateView):

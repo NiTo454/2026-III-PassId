@@ -1,84 +1,75 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}Mi progreso académico - PassID{% endblock %}
 
 {% block content %}
-<div class="main-container">
-    
-    <div class="page-header">
+<section class="academic-progress-page">
+    <header class="page-header">
         <div>
-            <h1 class="page-title"><i class="fa-solid fa-chart-line"></i> Mi Progreso</h1>
-            <p class="page-subtitle">Cumplimiento del porcentaje requerido por materia</p>
+            <p class="catalog-eyebrow"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Seguimiento académico</p>
+            <h1 class="page-title">Mi progreso</h1>
+            <p class="page-subtitle">Consulta el avance de asistencia de tus materias.</p>
         </div>
-        
-        <form method="GET" class="search-bar">
-
-            <select name="periodo" class="search-input">
-                {% for p in periodos_disponibles %}
-                    <option value="{{ p }}" {% if periodo_actual == p %}selected{% endif %}>{{ p }}</option>
+        <form method="get" class="academic-progress-filter">
+            <label class="form-label" for="periodo">Periodo</label>
+            <select name="periodo" id="periodo" class="form-select">
+                {% for periodo in periodos_disponibles %}
+                <option value="{{ periodo }}" {% if periodo_actual == periodo %}selected{% endif %}>{{ periodo }}</option>
                 {% empty %}
-                    <option value="" selected>No hay periodos disponibles</option>
+                <option value="" selected>No hay periodos disponibles</option>
                 {% endfor %}
             </select>
-            
-            <button type="submit" class="btn-search">
-                <i class="fa-solid fa-filter"></i> Filtrar
+            <button type="submit" class="btn-create">
+                <i class="fa-solid fa-filter" aria-hidden="true"></i> Ver
             </button>
         </form>
-    </div>
+    </header>
 
-    <div class="glass-card messages">
-        <div class="navbar">
-            <div>
-                <div class="page-subtitle">Alumno / Estudiante</div>
-                <div class="page-title">{{ estudiante_nombre }}</div>
-            </div>
-            <div class="badge-active">
-                {{ periodo_actual }}
-            </div>
+    <section class="glass-card academic-student-banner" aria-label="Alumno y periodo consultado">
+        <div>
+            <p>Alumno</p>
+            <strong>{{ estudiante_nombre }}</strong>
         </div>
-    </div>
+        <span class="badge-role">{{ periodo_actual|default:"Sin periodo" }}</span>
+    </section>
 
-    <div class="grid-2">
+    <section class="academic-progress-grid" aria-label="Progreso por materia">
         {% for item in progreso_materias %}
-        <div class="glass-card">
-            
-            <div class="navbar">
+        <article class="glass-card academic-progress-card">
+            <header>
                 <div>
-                    <h3 class="form-title">{{ item.materia }}</h3>
-                    <span class="badge-perm">[{{ item.codigo }}] Grupo {{ item.grupo }}</span>
+                    <h2>{{ item.materia }}</h2>
+                    <code>{{ item.codigo }} · Grupo {{ item.grupo }}</code>
                 </div>
-                
                 {% if item.porcentaje < 70 %}
-                    <span class="badge-status badge-inactive">Crítico</span>
+                <span class="badge-status badge-inactive">Crítico</span>
                 {% elif item.porcentaje < 85 %}
-                    <span class="badge-status badge-role">Regular</span>
+                <span class="badge-status badge-role">Regular</span>
                 {% else %}
-                    <span class="badge-status badge-active">Óptimo</span>
+                <span class="badge-status badge-active">Óptimo</span>
                 {% endif %}
-            </div>
+            </header>
 
-            <div class="navbar">
-                <div class="page-subtitle">
-                    <i class="fa-solid fa-check"></i> Asistencias: 
-                    <strong>{{ item.asistencias }} / {{ item.total_clases }}</strong>
-                </div>
-                <div class="form-title">
-                    {{ item.porcentaje }}%
-                </div>
-            </div>
+            <progress
+                class="academic-progress-bar"
+                value="{{ item.porcentaje }}"
+                max="100"
+                aria-label="Progreso de {{ item.materia }}"
+            >{{ item.porcentaje }}%</progress>
 
-            <div class="search-bar">
-                <progress value="{{ item.porcentaje }}" max="100" class="form-control"></progress>
-            </div>
-            
-        </div>
+            <footer>
+                <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Asistencias</span>
+                <strong>{{ item.asistencias }} / {{ item.total_clases }}</strong>
+                <span class="academic-progress-percent">{{ item.porcentaje }}%</span>
+            </footer>
+        </article>
         {% empty %}
-        <div class="glass-card messages">
-            <div class="navbar">
-                <p class="page-subtitle">No se encontraron materias registradas para el periodo seleccionado.</p>
-            </div>
+        <div class="glass-card academic-empty-state">
+            <span class="academic-empty-icon"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>
+            <h2>No hay materias para mostrar</h2>
+            <p>No se encontraron materias inscritas para el periodo seleccionado.</p>
         </div>
         {% endfor %}
-    </div>
-
-</div>
+    </section>
+</section>
 {% endblock %}

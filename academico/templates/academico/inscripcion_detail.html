@@ -1,59 +1,67 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}Inscripción de {{ inscripcion.usuario }} - PassID{% endblock %}
 
 {% block content %}
-<div class="main-container">
-    <div class="page-header">
+<section class="academic-detail-page">
+    <header class="page-header academic-detail-heading">
         <div>
-            <h2 class="page-title">Detalles de la Inscripción</h2>
-            <div class="page-subtitle">Matrícula o Registro del Estudiante</div>
+            <p class="catalog-eyebrow"><i class="fa-solid fa-user-check" aria-hidden="true"></i> Registro académico</p>
+            <h1 class="page-title">Inscripción</h1>
+            <p class="page-subtitle">{{ inscripcion.usuario.nombre|default:inscripcion.usuario.username }} {{ inscripcion.usuario.apaterno|default:"" }}</p>
         </div>
-        <div class="actions">
-            {% if user.is_superuser or perms.inscripcion.change_inscripcion %}<a href="{% url 'academico:inscripcion_update' inscripcion.pk %}" class="btn-action btn-edit" title="Editar">
-                <i class="fa-solid fa-pen"></i>
-            </a>{% endif %}
-            {% if user.is_superuser or perms.inscripcion.delete_inscripcion %}<a href="{% url 'academico:inscripcion_delete' inscripcion.pk %}" class="btn-action btn-delete" title="Eliminar">
-                <i class="fa-solid fa-trash"></i>
-            </a>{% endif %}
-            <a href="{% url 'academico:inscripcion_list' %}" class="btn-cancel">
-                <i class="fa-solid fa-arrow-left"></i> Regresar
+        <nav class="page-actions" aria-label="Acciones de la inscripción">
+            {% if user.is_superuser or perms.inscripcion.change_inscripcion %}
+            <a href="{% url 'academico:inscripcion_update' inscripcion.pk %}" class="btn-action btn-edit" aria-label="Editar inscripción" title="Editar inscripción">
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
             </a>
-        </div>
-    </div>
+            {% endif %}
+            {% if user.is_superuser or perms.inscripcion.delete_inscripcion %}
+            <a href="{% url 'academico:inscripcion_delete' inscripcion.pk %}" class="btn-action btn-delete" aria-label="Eliminar inscripción" title="Eliminar inscripción">
+                <i class="fa-solid fa-trash" aria-hidden="true"></i>
+            </a>
+            {% endif %}
+            <a href="{% url 'academico:inscripcion_list' %}" class="btn-cancel">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Volver a inscripciones
+            </a>
+        </nav>
+    </header>
 
-    <div class="glass-card">
-        <div class="grid-2" style="padding: 2.5rem;">
-            <div>
-                <span class="form-label">ALUMNO</span>
-                <div class="form-title">
-                    {{ inscripcion.usuario.nombre|default:inscripcion.usuario.username }}
-                    {% if inscripcion.usuario.matricula %}
-                        <span class="badge-role">{{ inscripcion.usuario.matricula }}</span>
-                    {% endif %}
-                </div>
+    <section class="glass-card" aria-label="Información de la inscripción">
+        <div class="academic-detail-grid">
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Alumno</span>
+                <strong class="academic-detail-value">{{ inscripcion.usuario }}</strong>
             </div>
-            <div>
-                <span class="form-label">MATERIA ASIGNADA</span>
-                <div class="form-title">{{ inscripcion.materia.nombre }}</div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Matrícula</span>
+                <strong class="academic-detail-value">{{ inscripcion.usuario.matricula|default:"No registrada" }}</strong>
             </div>
-            <div>
-                <span class="form-label">GRUPO</span>
-                <div class="form-title">{{ inscripcion.grupo|default:"No asignado" }}</div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Materia</span>
+                <strong class="academic-detail-value">{{ inscripcion.materia.nombre }} · {{ inscripcion.materia.clave }}</strong>
             </div>
-            <div>
-                <span class="form-label">PERIODO ACADÉMICO</span>
-                <div class="form-title">{{ inscripcion.periodo|default:"No especificado" }}</div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Grupo</span>
+                <strong class="academic-detail-value">{{ inscripcion.grupo|default:"No asignado" }}</strong>
             </div>
-            <div>
-                <span class="form-label">FECHA DE INSCRIPCIÓN</span>
-                <div class="form-title">{{ inscripcion.fecha_inscripcion|date:"d de F Y, h:i a" }}</div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Periodo académico</span>
+                <strong class="academic-detail-value">{{ inscripcion.periodo|default:"No especificado" }}</strong>
             </div>
-            <div>
-                <span class="form-label">ESTADO DEL REGISTRO</span>
-                <div class="messages">
-                     <span class="badge-status badge-active">Inscrito</span>
-                </div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Fecha de registro</span>
+                <strong class="academic-detail-value">{{ inscripcion.fecha_inscripcion|date:"d/m/Y H:i" }}</strong>
+            </div>
+            <div class="academic-detail-item">
+                <span class="academic-detail-label">Estado</span>
+                {% if inscripcion.activa %}
+                <span class="badge-status badge-active">Activa</span>
+                {% else %}
+                <span class="badge-status badge-inactive">Inactiva</span>
+                {% endif %}
             </div>
         </div>
-    </div>
-</div>
+    </section>
+</section>
 {% endblock %}

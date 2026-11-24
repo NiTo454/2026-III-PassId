@@ -1,4 +1,7 @@
 from django import forms
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.forms import BaseModelFormSet, modelformset_factory
 from .models import (
     Aula,
     Carrera,
@@ -43,7 +46,9 @@ class MateriaForm(forms.ModelForm):
             "asistencias": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
             "horas_semana": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
             "periodo": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej. 2026-3"}),
-            "carrera": forms.Select(attrs={"class": "form-select"}),
+            "carrera": forms.Select(
+                attrs={"class": "form-select", "data-search-options": "true"}
+            ),
             "activa": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -53,9 +58,15 @@ class HorarioForm(forms.ModelForm):
         model = Horario
         fields = ["materia", "profesor", "aula", "grupo", "dia_semana", "hora_inicio", "hora_fin", "periodo", "activo"]
         widgets = {
-            "materia": forms.Select(attrs={"class": "form-select"}),
-            "profesor": forms.Select(attrs={"class": "form-select"}),
-            "aula": forms.Select(attrs={"class": "form-select"}),
+            "materia": forms.Select(
+                attrs={"class": "form-select", "data-search-options": "true"}
+            ),
+            "profesor": forms.Select(
+                attrs={"class": "form-select", "data-search-options": "true"}
+            ),
+            "aula": forms.Select(
+                attrs={"class": "form-select", "data-search-options": "true"}
+            ),
             "grupo": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej. A"}),
             "dia_semana": forms.Select(attrs={"class": "form-select"}),
             "hora_inicio": forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
@@ -65,17 +76,76 @@ class HorarioForm(forms.ModelForm):
         }
 
 
+class EnrollmentUserChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, user):
+        if user.matricula:
+            return f"{user.matricula} · {user}"
+        return str(user)
+
+
 class InscripcionForm(forms.ModelForm):
+    usuario = EnrollmentUserChoiceField(
+        queryset=get_user_model().objects.all(),
+        label="Alumno",
+        widget=forms.Select(
+            attrs={"class": "form-select", "data-search-options": "true"}
+        ),
+    )
+
     class Meta:
         model = Inscripcion
         fields = ["usuario", "materia", "grupo", "periodo", "activa"]
         widgets = {
-            "usuario": forms.Select(attrs={"class": "form-select"}),
-            "materia": forms.Select(attrs={"class": "form-select"}),
+            "materia": forms.Select(
+                attrs={"class": "form-select", "data-search-options": "true"}
+            ),
             "grupo": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej. A"}),
             "periodo": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej. 2026-3"}),
             "activa": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+
+class InscripcionImportForm(forms.Form):
+    archivo = forms.FileField(
+        label="Archivo CSV o Excel",
+        widget=forms.ClearableFileInput(
+            attrs={"class": "form-control", "accept": ".csv,.xlsx"}
+        ),
+    )
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data["archivo"]
+        extension = archivo.name.rsplit(".", 1)[-1].lower()
+        if extension not in {"csv", "xlsx"}:
+            raise forms.ValidationError("El archivo debe tener extensión .csv o .xlsx.")
+        if archivo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError("El archivo no puede superar los 5 MB.")
+        return archivo
+
+
+class NonEmptyModelFormSet(BaseModelFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        if not any(
+            form.has_changed() and not form.cleaned_data.get("DELETE", False)
+            for form in self.forms
+        ):
+            raise ValidationError("Agrega al menos un registro antes de guardar.")
+
+
+def create_bulk_formset(model, form_class):
+    return modelformset_factory(
+        model,
+        form=form_class,
+        formset=NonEmptyModelFormSet,
+        extra=1,
+        can_delete=True,
+        max_num=100,
+        validate_max=True,
+        absolute_max=100,
+    )
 
 
 class ProfesorDisponibilidadForm(forms.ModelForm):
