@@ -3,53 +3,117 @@
 {% block title %}Asistencias de clase - PassID{% endblock %}
 
 {% block content %}
-<section class="glass-card">
-    <div class="page-header">
+<section class="attendance-history">
+    <header class="page-header attendance-history-header">
         <div>
-            <h1 class="form-title">Asistencias de clase</h1>
-            <p style="color: var(--text-muted);">Registros QR por tus horarios asignados.</p>
+            <p class="attendance-eyebrow"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Control académico</p>
+            <h1 class="page-title">Asistencias de clase</h1>
+            <p class="page-subtitle">Consulta los registros de tus horarios asignados y localiza rápidamente a un alumno.</p>
         </div>
-    </div>
-    <div style="overflow-x: auto;">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Hora</th>
-                    <th>Materia</th>
-                    <th>Grupo</th>
-                    <th>Matrícula</th>
-                    <th>Alumno</th>
-                    <th>Método</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for asistencia in asistencias %}
-                <tr>
-                    <td>{{ asistencia.fecha|date:"d/m/Y" }}</td>
-                    <td>{{ asistencia.hora|time:"H:i" }}</td>
-                    <td>{{ asistencia.horario.materia.nombre }}</td>
-                    <td>{{ asistencia.horario.grupo }}</td>
-                    <td>{{ asistencia.usuario.matricula|default:"--" }}</td>
-                    <td>{{ asistencia.usuario }}</td>
-                    <td>{{ asistencia.get_metodo_display }}</td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="7">Todavía no hay asistencias registradas.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% if is_paginated %}
-    <nav class="pagination" aria-label="Paginación">
-        {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+    </header>
+
+    <div class="glass-card attendance-history-card">
+        <div class="attendance-history-toolbar">
+            <div class="attendance-results" aria-live="polite">
+                <span class="attendance-results-icon"><i class="fa-solid fa-list-check" aria-hidden="true"></i></span>
+                <span>
+                    <strong>{{ page_obj.paginator.count }}</strong>
+                    <span>{% if page_obj.paginator.count == 1 %}registro encontrado{% else %}registros encontrados{% endif %}</span>
+                </span>
+            </div>
+            <form method="get" class="attendance-search" role="search">
+                <label for="attendance-search-query">Buscar asistencias</label>
+                <div class="attendance-search-controls">
+                    <div class="attendance-search-field">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                        <input
+                            id="attendance-search-query"
+                            type="search"
+                            name="q"
+                            value="{{ request.GET.q }}"
+                            placeholder="Alumno, matrícula, materia o grupo"
+                            autocomplete="off"
+                        >
+                    </div>
+                    <button class="attendance-search-button" type="submit">Buscar</button>
+                    {% if request.GET.q %}
+                    <a class="attendance-clear-search" href="{% url 'asistencia_qr:asistencia_list' %}">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <div class="attendance-table-wrap">
+            <table class="table attendance-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Fecha y hora</th>
+                        <th scope="col">Materia</th>
+                        <th scope="col">Grupo</th>
+                        <th scope="col">Alumno</th>
+                        <th scope="col">Método</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asistencia in asistencias %}
+                    <tr>
+                        <td data-label="Fecha y hora">
+                            <span class="attendance-date">{{ asistencia.fecha|date:"d/m/Y" }}</span>
+                            <span class="attendance-time">{{ asistencia.hora|time:"H:i" }}</span>
+                        </td>
+                        <td data-label="Materia"><span class="attendance-subject">{{ asistencia.horario.materia.nombre }}</span></td>
+                        <td data-label="Grupo"><span class="attendance-group">Grupo {{ asistencia.horario.grupo }}</span></td>
+                        <td data-label="Alumno">
+                            <span class="attendance-student">{{ asistencia.usuario }}</span>
+                            <span class="attendance-enrollment">{{ asistencia.usuario.matricula|default:"Sin matrícula" }}</span>
+                        </td>
+                        <td data-label="Método">
+                            <span class="attendance-method {% if asistencia.metodo == 'qr' %}is-qr{% else %}is-manual{% endif %}">
+                                <i class="fa-solid {% if asistencia.metodo == 'qr' %}fa-qrcode{% else %}fa-keyboard{% endif %}" aria-hidden="true"></i>
+                                {{ asistencia.get_metodo_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5">
+                            <div class="attendance-empty">
+                                <span class="attendance-empty-icon"><i class="fa-solid fa-clipboard-question" aria-hidden="true"></i></span>
+                                {% if request.GET.q %}
+                                <strong>No encontramos coincidencias</strong>
+                                <p>Prueba con otro nombre, matrícula, materia o grupo.</p>
+                                <a href="{% url 'asistencia_qr:asistencia_list' %}">Ver todos los registros</a>
+                                {% else %}
+                                <strong>Aún no hay asistencias</strong>
+                                <p>Cuando se registren asistencias para tus horarios, aparecerán aquí.</p>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if is_paginated %}
+        <nav class="pagination attendance-pagination" aria-label="Paginación de asistencias">
+            {% if page_obj.has_previous %}
+            <a class="attendance-page-link" href="?{% if request.GET.q %}q={{ request.GET.q|urlencode }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Anterior
+            </a>
+            {% else %}
+            <span></span>
+            {% endif %}
+            <span class="pagination-info">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+            <a class="attendance-page-link" href="?{% if request.GET.q %}q={{ request.GET.q|urlencode }}&amp;{% endif %}page={{ page_obj.next_page_number }}">
+                Siguiente <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </a>
+            {% else %}
+            <span></span>
+            {% endif %}
+        </nav>
         {% endif %}
-        <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}">Siguiente</a>
-        {% endif %}
-    </nav>
-    {% endif %}
+    </div>
 </section>
 {% endblock %}

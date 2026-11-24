@@ -2,6 +2,7 @@ import base64
 
 from django.core import signing
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -287,4 +288,16 @@ class AsistenciaClaseListView(PassIdPermissionMixin, ListView):
         )
         if not self.request.user.is_superuser:
             asistencias = asistencias.filter(horario__profesor=self.request.user)
+        query = self.request.GET.get("q", "").strip()
+        if query:
+            asistencias = asistencias.filter(
+                Q(usuario__nombre__icontains=query)
+                | Q(usuario__apaterno__icontains=query)
+                | Q(usuario__amaterno__icontains=query)
+                | Q(usuario__username__icontains=query)
+                | Q(usuario__matricula__icontains=query)
+                | Q(horario__materia__nombre__icontains=query)
+                | Q(horario__grupo__icontains=query)
+                | Q(metodo__icontains=query)
+            )
         return asistencias.order_by("-fecha", "-hora")

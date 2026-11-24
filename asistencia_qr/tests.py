@@ -1,5 +1,5 @@
 import base64
-from datetime import time
+from datetime import date, time
 from unittest.mock import patch
 
 from django.core import signing
@@ -333,3 +333,39 @@ class QrAttendanceTests(TestCase):
 
         self.assertIn(self.horario, form.fields["horario"].queryset)
         self.assertIn(other_schedule, form.fields["horario"].queryset)
+
+    def test_attendance_list_searches_student_and_subject(self):
+        attendance_permission, _ = Permiso.objects.get_or_create(
+            codename="ver_asistencias",
+            defaults={"tipo": "asistencia_qr"},
+        )
+        self.teacher.permisos_directos.add(attendance_permission)
+        AsistenciaClase.objects.create(
+            horario=self.horario,
+            usuario=self.student,
+            fecha=date(2026, 11, 10),
+            hora=time(8, 30),
+            metodo="qr",
+        )
+        self.client.force_login(self.teacher)
+
+        by_student = self.client.get(
+            reverse("asistencia_qr:asistencia_list"),
+            {"q": self.student.matricula},
+        )
+        by_subject = self.client.get(
+            reverse("asistencia_qr:asistencia_list"),
+            {"q": self.horario.materia.nombre},
+        )
+        no_match = self.client.get(
+            reverse("asistencia_qr:asistencia_list"),
+            {"q": "sin-coincidencias"},
+        )
+
+        self.assertEqual(by_student.status_code, 200)
+        self.assertEqual(by_subject.status_code, 200)
+        self.assertEqual(no_match.status_code, 200)
+        self.assertEqual(by_student.context["page_obj"].paginator.count, 1)
+        self.assertEqual(by_subject.context["page_obj"].paginator.count, 1)
+        self.assertEqual(no_match.context["page_obj"].paginator.count, 0)
+        self.assertContains(no_match, "No encontramos coincidencias")
