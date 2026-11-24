@@ -202,14 +202,70 @@ class MiPerfilForm(forms.ModelForm):
     class Meta:
         model = Usuario
         fields = [
-            'nombre', 
-            'apaterno', 
-            'amaterno',
-            'categoria',
-            'grupo',
-            'email',
-            'whatsapp',
+            "nombre",
+            "apaterno",
+            "amaterno",
+            "categoria",
+            "grupo",
+            "email",
+            "whatsapp",
         ]
+        labels = {
+            "nombre": "Nombre(s)",
+            "apaterno": "Apellido paterno",
+            "amaterno": "Apellido materno",
+            "categoria": "Categoría",
+            "grupo": "Grupo",
+            "email": "Correo institucional",
+            "whatsapp": "WhatsApp / teléfono",
+        }
+        widgets = {
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "given-name",
+                    "placeholder": "Escribe tu nombre",
+                }
+            ),
+            "apaterno": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "family-name",
+                    "placeholder": "Escribe tu apellido paterno",
+                }
+            ),
+            "amaterno": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "additional-name",
+                    "placeholder": "Escribe tu apellido materno",
+                }
+            ),
+            "categoria": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Ej. Estudiante o docente",
+                }
+            ),
+            "grupo": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "Ej. 1A"}
+            ),
+            "email": forms.EmailInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "email",
+                    "placeholder": "nombre@institucion.edu",
+                }
+            ),
+            "whatsapp": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "tel",
+                    "autocomplete": "tel",
+                    "placeholder": "Tu número de contacto",
+                }
+            ),
+        }
 
 
 class PasswordResetRequestForm(forms.Form):

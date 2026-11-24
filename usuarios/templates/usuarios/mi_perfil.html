@@ -1,13 +1,47 @@
-{% extends 'common/form_base.html' %}
+{% extends "base.html" %}
+
+{% block title %}Mi perfil - PassID{% endblock %}
 
 {% block content %}
-<div class="form-container">
-    <div class="glass-card">
-        <h1 class="form-title">Configuración de mi perfil</h1>
+<section class="profile-settings-page" aria-labelledby="profile-settings-title">
+    <header class="profile-settings-header">
+        <div>
+            <p class="profile-settings-eyebrow">
+                <i class="fa-solid fa-user-gear" aria-hidden="true"></i> Cuenta personal
+            </p>
+            <h1 class="page-title" id="profile-settings-title">Configuración de mi perfil</h1>
+            <p class="page-subtitle">Mantén actualizados tus datos personales y de contacto.</p>
+        </div>
+        <a href="{% url 'home' %}" class="btn-cancel profile-back-link">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Volver
+        </a>
+    </header>
+
+    <div class="glass-card profile-settings-card">
+        <div class="profile-account-summary">
+            <span class="profile-account-icon" aria-hidden="true">
+                <i class="fa-solid fa-user"></i>
+            </span>
+            <div>
+                <span class="profile-account-label">Cuenta activa</span>
+                <strong>{{ user }}</strong>
+                <small>{{ user.email }}</small>
+            </div>
+        </div>
+
+        <div class="profile-form-heading">
+            <div>
+                <h2>Datos de tu cuenta</h2>
+                <p>Completa la información para que podamos identificarte y contactarte.</p>
+            </div>
+            <span class="profile-edit-indicator">
+                <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Editable
+            </span>
+        </div>
 
         {% if form.non_field_errors %}
-        <div class="alert alert-error">
-            <i class="fa-solid fa-circle-xmark"></i>
+        <div class="alert alert-error" role="alert">
+            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
             <div>
                 {% for error in form.non_field_errors %}
                 <p>{{ error }}</p>
@@ -16,48 +50,32 @@
         </div>
         {% endif %}
 
-        <form method="post" action="{% url 'usuarios:mi_perfil' %}">
+        <form method="post" action="{% url 'usuarios:mi_perfil' %}" class="profile-settings-form">
             {% csrf_token %}
-            <div class="grid-2">
-                <div>
-                    {% for field in form %}
-                        {% if field.name == "nombre" or field.name == "apaterno" or field.name == "amaterno" %}
-                        <div class="form-group">
-                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                            {{ field }}
-                            {% for error in field.errors %}
-                            <div class="alert alert-error">
-                                <i class="fa-solid fa-circle-xmark"></i>
-                                <span>{{ error }}</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
+            <div class="profile-form-grid">
+                {% for field in form %}
+                <div class="form-group profile-field{% if field.name == 'email' %} profile-field-wide{% endif %}">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                    <small class="catalog-field-help">{{ field.help_text }}</small>
+                    {% endif %}
+                    {% for error in field.errors %}
+                    <p class="field-error" role="alert">{{ error }}</p>
                     {% endfor %}
                 </div>
-                <div>
-                    {% for field in form %}
-                        {% if field.name != "nombre" and field.name != "apaterno" and field.name != "amaterno" %}
-                        <div class="form-group">
-                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                            {{ field }}
-                            {% for error in field.errors %}
-                            <div class="alert alert-error">
-                                <i class="fa-solid fa-circle-xmark"></i>
-                                <span>{{ error }}</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
+                {% endfor %}
             </div>
 
-            <div class="btn-group">
-                <a href="{% url 'home' %}" class="btn-cancel">Cancelar</a>
-                <button type="submit" class="btn-submit">Guardar cambios</button>
+            <div class="profile-form-actions">
+                <a href="{% url 'home' %}" class="btn-cancel">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i> Cancelar
+                </a>
+                <button type="submit" class="btn-submit">
+                    <i class="fa-solid fa-check" aria-hidden="true"></i> Guardar cambios
+                </button>
             </div>
         </form>
     </div>
-</div>
+</section>
 {% endblock %}

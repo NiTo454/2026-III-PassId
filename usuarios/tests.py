@@ -41,6 +41,32 @@ class CambiarPasswordViewTests(TestCase):
         self.assertContains(response, "password-change-guidance")
 
 
+class MiPerfilViewTests(TestCase):
+    def setUp(self):
+        usuario = Usuario.objects.create_superuser(
+            username="perfil_ui_usuario",
+            email="perfil-ui@example.invalid",
+            password="test-password",
+            nombre="Ana",
+            apaterno="López",
+            whatsapp="5550000000",
+            grupo="1A",
+        )
+        self.client.force_login(usuario)
+
+    def test_profile_form_renders_styled_fields_and_responsive_layout(self):
+        response = self.client.get(reverse("usuarios:mi_perfil"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="profile-settings-page"')
+        self.assertContains(response, 'class="profile-form-grid"')
+        self.assertContains(response, 'class="form-control"')
+        self.assertContains(response, 'autocomplete="given-name"')
+        self.assertContains(response, 'autocomplete="email"')
+        self.assertContains(response, 'type="tel"')
+        self.assertContains(response, "Guardar cambios")
+
+
 class UsuarioUpdatePasswordTests(TestCase):
     def setUp(self):
         self.usuario = Usuario(

@@ -576,6 +576,29 @@ class EventosScannerTests(TestCase):
             response.context["pagination_query"],
             f"evento={self.evento_con_registro.pk}&grupo=TIC-PAGE&categoria=Estudiante",
         )
+        self.assertContains(response, 'class="pagination catalog-pagination"')
+        self.assertContains(response, 'class="catalog-page-link catalog-page-next"')
+        self.assertContains(response, 'aria-label="Página actual 1 de 2"')
+        self.assertContains(
+            response,
+            f'?page=2&amp;evento={self.evento_con_registro.pk}&amp;grupo=TIC-PAGE',
+        )
+
+        response = self.client.get(
+            reverse("eventos:registro_list"),
+            {
+                "evento": self.evento_con_registro.pk,
+                "grupo": "TIC-PAGE",
+                "categoria": "Estudiante",
+                "q": "",
+                "page": 2,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="catalog-page-link catalog-page-previous"')
+        self.assertContains(response, 'aria-label="Página actual 2 de 2"')
+        self.assertNotContains(response, 'rel="next"')
 
     def test_registration_template_download_has_expected_columns(self):
         from openpyxl import load_workbook

@@ -369,3 +369,43 @@ class QrAttendanceTests(TestCase):
         self.assertEqual(by_subject.context["page_obj"].paginator.count, 1)
         self.assertEqual(no_match.context["page_obj"].paginator.count, 0)
         self.assertContains(no_match, "No encontramos coincidencias")
+
+    def test_attendance_pagination_keeps_search_and_uses_shared_controls(self):
+        attendance_permission, _ = Permiso.objects.get_or_create(
+            codename="ver_asistencias",
+            defaults={"tipo": "asistencia_qr"},
+        )
+        self.teacher.permisos_directos.add(attendance_permission)
+        for day in range(1, 27):
+            AsistenciaClase.objects.create(
+                horario=self.horario,
+                usuario=self.student,
+                fecha=date(2026, 11, day),
+                hora=time(8, 30),
+                metodo="qr",
+            )
+        self.client.force_login(self.teacher)
+
+        first_page = self.client.get(
+            reverse("asistencia_qr:asistencia_list"),
+            {"q": self.student.matricula},
+        )
+
+        self.assertEqual(first_page.status_code, 200)
+        self.assertTrue(first_page.context["is_paginated"])
+        self.assertContains(first_page, 'class="pagination catalog-pagination"')
+        self.assertContains(
+            first_page,
+            f'?page=2&amp;q={self.student.matricula}',
+        )
+
+        second_page = self.client.get(
+            reverse("asistencia_qr:asistencia_list"),
+            {"q": self.student.matricula, "page": 2},
+        )
+
+        self.assertEqual(second_page.status_code, 200)
+        self.assertContains(
+            second_page,
+            f'?page=1&amp;q={self.student.matricula}',
+        )

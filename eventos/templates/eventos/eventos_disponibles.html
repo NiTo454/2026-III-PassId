@@ -83,17 +83,28 @@
     </div>
 
     {% if is_paginated %}
-    <div class="pagination">
+    <nav class="pagination catalog-pagination" aria-label="Paginación de eventos disponibles">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action btn-page">&laquo; Anterior</a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}" class="catalog-page-link catalog-page-previous" rel="prev" aria-label="Ir a la página {{ page_obj.previous_page_number }}">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Anterior
+        </a>
+        {% else %}
+        <span class="catalog-page-placeholder catalog-page-previous" aria-hidden="true"></span>
         {% endif %}
-        <span class="pagination-info">
-            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        <span class="pagination-info" role="status" aria-label="Página actual {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}">
+            <span>Página</span>
+            <strong>{{ page_obj.number }}</strong>
+            <span>de</span>
+            <strong>{{ page_obj.paginator.num_pages }}</strong>
         </span>
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn-action btn-page">Siguiente &raquo;</a>
+        <a href="?page={{ page_obj.next_page_number }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}" class="catalog-page-link catalog-page-next" rel="next" aria-label="Ir a la página {{ page_obj.next_page_number }}">
+            Siguiente <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </a>
+        {% else %}
+        <span class="catalog-page-placeholder catalog-page-next" aria-hidden="true"></span>
         {% endif %}
-    </div>
+    </nav>
     {% endif %}
 </div>
 {% endblock %}
