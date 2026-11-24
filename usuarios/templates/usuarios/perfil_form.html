@@ -1,36 +1,116 @@
-{% extends 'usuarios/base.html' %}
+{% extends "usuarios/base.html" %}
+{% load static %}
 
 {% block title %}{{ title }} - PassID{% endblock %}
 
 {% block content %}
-<div class="form-container">
-    <div class="glass-card">
-        <h1 class="form-title">{{ title }}</h1>
-        <p style="color: var(--text-muted); margin-bottom: 2rem;">Asigna el nombre del perfil y selecciona los permisos deseados.</p>
+<section class="role-form-page" aria-labelledby="role-form-title">
+    <header class="role-form-page-header">
+        <div>
+            <p class="role-page-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Administración</p>
+            <h1 class="page-title" id="role-form-title">{{ title }}</h1>
+            <p class="page-subtitle">Define el rol y ajusta sus permisos por módulo.</p>
+        </div>
+        <a href="{% url 'usuarios:perfil_list' %}" class="btn-cancel role-back-link">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Volver a perfiles
+        </a>
+    </header>
 
-        <form method="post">
+    <div class="glass-card role-form-card">
+        {% if form.non_field_errors %}
+        <div class="alert alert-error" role="alert">
+            <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>
+            <div>{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        </div>
+        {% endif %}
+
+        <form method="post" class="role-edit-form">
             {% csrf_token %}
-            <div class="form-group">
-                <label class="form-label">{{ form.nombre.label }}</label>
+            <div class="role-name-field form-group">
+                <label class="form-label" for="{{ form.nombre.id_for_label }}">{{ form.nombre.label }}</label>
                 {{ form.nombre }}
+                {% for error in form.nombre.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
             </div>
 
-            <div class="form-group">
-                <label class="form-label">{{ form.permisos.label }}</label>
-                <div class="checkbox-grid">
+            <section class="role-permissions-section" aria-labelledby="role-permissions-title">
+                <header class="role-permissions-heading">
+                    <div>
+                        <h2 id="role-permissions-title">{{ form.permisos.label }}</h2>
+                        <p>Abre un módulo para revisar sus permisos o filtra por nombre para encontrarlos rápido.</p>
+                    </div>
+                    <span class="role-selection-count" id="role-permission-selection-count" role="status"></span>
+                </header>
+
+                <div class="role-permission-tools" data-permission-tools hidden>
+                    <div class="role-permission-filter-row">
+                        <label class="role-permission-search">
+                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                            <span class="sr-only">Buscar permisos</span>
+                            <input
+                                type="search"
+                                id="role-permission-search"
+                                placeholder="Buscar por módulo, código o descripción..."
+                                autocomplete="off"
+                            >
+                        </label>
+                        <label class="role-permission-module-filter">
+                            <span class="sr-only">Filtrar por módulo</span>
+                            <select class="form-select" id="role-permission-module">
+                                <option value="">Todos los módulos</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                        </label>
+                        <label class="role-show-selected">
+                            <input type="checkbox" id="role-permission-selected-only">
+                            <span>Solo seleccionados</span>
+                        </label>
+                    </div>
+                    <div class="role-permission-actions">
+                        <button type="button" class="btn-cancel" data-reset-filters>
+                            <i class="fa-solid fa-filter-circle-xmark" aria-hidden="true"></i> Limpiar filtros
+                        </button>
+                        <button type="button" class="btn-cancel" data-clear-visible>
+                            <i class="fa-solid fa-eraser" aria-hidden="true"></i> Quitar seleccionados visibles
+                        </button>
+                        <button type="button" class="btn-cancel" data-select-visible>
+                            <i class="fa-solid fa-check-double" aria-hidden="true"></i> Seleccionar resultados
+                        </button>
+                    </div>
+                </div>
+
+                <p class="role-permission-results" id="role-permission-results" aria-live="polite"></p>
+                {% if form.permisos.errors %}
+                <div class="role-permission-errors" role="alert">
+                    {% for error in form.permisos.errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="role-permission-groups" id="role-permission-groups">
                     {% for checkbox in form.permisos %}
-                    <label class="checkbox-item">
-                        {{ checkbox.tag }} {{ checkbox.choice_label }}
+                    <label class="role-permission-option" data-permission-option>
+                        {{ checkbox.tag }}
+                        <span class="role-permission-label">{{ checkbox.choice_label }}</span>
                     </label>
                     {% endfor %}
                 </div>
-            </div>
+                <p class="role-permission-empty" id="role-permission-empty" hidden>
+                    No encontramos permisos que coincidan con esa búsqueda.
+                </p>
+            </section>
 
-            <div class="btn-group">
-                <a href="{% url 'usuarios:perfil_list' %}" class="btn-cancel">Cancelar</a>
-                <button type="submit" class="btn-submit">{{ button_text }}</button>
-            </div>
+            <footer class="role-form-actions">
+                <a href="{% url 'usuarios:perfil_list' %}" class="btn-cancel">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i> Cancelar
+                </a>
+                <button type="submit" class="btn-submit">
+                    <i class="fa-solid fa-check" aria-hidden="true"></i> {{ button_text }}
+                </button>
+            </footer>
         </form>
     </div>
-</div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/perfil-permisos.js' %}?v=3" defer></script>
 {% endblock %}

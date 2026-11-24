@@ -67,6 +67,66 @@ class MiPerfilViewTests(TestCase):
         self.assertContains(response, "Guardar cambios")
 
 
+class PerfilManagementUiTests(TestCase):
+    def setUp(self):
+        admin = Usuario.objects.create_superuser(
+            username="perfil_management_admin",
+            email="perfil-management@example.invalid",
+            password="test-password",
+            whatsapp="",
+            grupo="",
+        )
+        self.client.force_login(admin)
+
+    def test_profile_catalog_summarizes_permissions_until_expanded(self):
+        perfil = Perfil.objects.create(nombre="Coordinación")
+        permisos = [
+            Permiso.objects.create(
+                tipo="academico",
+                codename=f"permiso_{index}",
+                nombre=f"Permiso {index}",
+            )
+            for index in range(5)
+        ]
+        perfil.permisos.add(*permisos)
+
+        response = self.client.get(reverse("usuarios:perfil_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="glass-card role-card"')
+        self.assertContains(response, "5 permisos")
+        self.assertContains(response, "Ver los 2 permisos restantes")
+        self.assertContains(response, 'class="role-permissions-details"')
+
+    def test_profile_form_renders_searchable_permission_groups_and_retains_choices(self):
+        perfil = Perfil.objects.create(nombre="Docente")
+        permisos = [
+            Permiso.objects.create(
+                tipo=module,
+                codename=f"ver_{module}",
+                nombre=f"Consultar {module}",
+            )
+            for module in ("academico", "eventos")
+        ]
+        perfil.permisos.add(permisos[0])
+
+        response = self.client.get(
+            reverse("usuarios:perfil_update", kwargs={"pk": perfil.pk})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="role-permission-search"')
+        self.assertContains(response, 'id="role-permission-module"')
+        self.assertContains(response, 'id="role-permission-selected-only"')
+        self.assertContains(response, 'id="role-permission-groups"')
+        self.assertContains(response, 'data-select-visible')
+        self.assertContains(response, 'data-clear-visible')
+        self.assertContains(response, "/static/js/perfil-permisos.js")
+        self.assertContains(response, "academico.ver_academico")
+        self.assertContains(response, "eventos.ver_eventos")
+        self.assertGreaterEqual(response.content.count(b'type="checkbox"'), 2)
+
+
 class UsuarioUpdatePasswordTests(TestCase):
     def setUp(self):
         self.usuario = Usuario(

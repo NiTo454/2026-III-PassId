@@ -1,62 +1,159 @@
-{% extends 'usuarios/base.html' %}
+{% extends "usuarios/base.html" %}
+{% load static %}
 
 {% block title %}Catálogo de Perfiles / Roles - PassID{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <div>
-        <h1 class="page-title">Gestión de Perfiles y Roles</h1>
-        <p class="page-subtitle">Administración manual de roles y asignación de permisos agrupados</p>
-    </div>
-    {% if user.is_superuser or perms.usuario.add_perfil %}<a href="{% url 'usuarios:perfil_create' %}" class="btn-create">
-        <i class="fa-solid fa-plus"></i> Crear Perfil
-    </a>{% endif %}
-</div>
+<section class="role-catalog-page">
+    <header class="page-header role-catalog-header">
+        <div>
+            <p class="role-page-eyebrow"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Administración</p>
+            <h1 class="page-title">Perfiles y roles</h1>
+            <p class="page-subtitle">Organiza los permisos de acceso en roles fáciles de administrar.</p>
+        </div>
+        {% if user.is_superuser or perms.usuario.add_perfil %}
+        <a href="{% url 'usuarios:perfil_create' %}" class="btn-create">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i> Crear perfil
+        </a>
+        {% endif %}
+    </header>
 
-<div class="glass-card">
-    <form method="get" class="search-bar">
-        <input type="text" name="q" value="{{ query }}" class="search-input" placeholder="Buscar por nombre de perfil...">
-        <button type="submit" class="btn-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
-    </form>
+    <section class="glass-card role-catalog-panel" aria-label="Catálogo de roles">
+        <form method="get" class="role-search-form">
+            <label class="sr-only" for="role-search">Buscar perfiles</label>
+            <div class="role-search-input">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input
+                    type="search"
+                    id="role-search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Buscar por nombre de perfil..."
+                >
+            </div>
+            <button type="submit" class="btn-search">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Buscar
+            </button>
+        </form>
 
-    <div style="overflow-x: auto;">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Nombre del Perfil</th>
-                    <th>Permisos Asignados</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for perfil in perfiles %}
-                <tr>
-                    <td><code>#{{ perfil.id }}</code></td>
-                    <td><strong>{{ perfil.nombre }}</strong></td>
-                    <td>
-                        {% for perm in perfil.permisos.all %}
-                        <span class="badge-perm">{{ perm.tipo }}.{{ perm.codename }}</span>
-                        {% empty %}
-                        <span style="color: var(--text-muted); font-size: 0.85rem;">Sin permisos asignados</span>
-                        {% endfor %}
-                    </td>
-                    <td>
-                        <div class="actions">
-                            {% if user.is_superuser or perms.usuario.change_perfil %}<a href="{% url 'usuarios:perfil_update' perfil.pk %}" class="btn-action btn-edit" title="Editar"><i class="fa-solid fa-pen"></i></a>{% endif %}
-                            {% if user.is_superuser or perms.usuario.delete_perfil %}<a href="{% url 'usuarios:perfil_delete' perfil.pk %}" class="btn-action btn-delete" title="Eliminar"><i class="fa-solid fa-trash"></i></a>{% endif %}
+        <div class="role-catalog-summary" aria-live="polite">
+            <span><strong>{{ total_count }}</strong> perfil{% if total_count != 1 %}es{% endif %}</span>
+            {% if query %}<span class="role-active-filter">Coincidencias para “{{ query }}”</span>{% endif %}
+        </div>
+
+        <div class="role-cards">
+            {% for perfil in perfiles %}
+            {% with permissions=perfil.permisos.all %}
+            <article class="glass-card role-card">
+                <header class="role-card-header">
+                    <div class="role-card-identity">
+                        <span class="role-card-icon" aria-hidden="true">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </span>
+                        <div>
+                            <span class="role-card-id">Rol #{{ perfil.id }}</span>
+                            <h2>{{ perfil.nombre }}</h2>
                         </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                        No se encontraron perfiles registrados.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+                    </div>
+                    <span class="role-permission-count">
+                        <i class="fa-solid fa-key" aria-hidden="true"></i>
+                        {{ permissions|length }} permiso{% if permissions|length != 1 %}s{% endif %}
+                    </span>
+                </header>
+
+                {% if permissions %}
+                <div class="role-permission-preview" aria-label="Muestra de permisos del rol">
+                    {% for perm in permissions|slice:":3" %}
+                    <span
+                        class="role-permission-chip"
+                        data-permission-chip
+                        data-permission-name="{{ perm.nombre }}"
+                        data-permission-code="{{ perm.codename }}"
+                        title="{{ perm.tipo }}.{{ perm.codename }}"
+                    >
+                        {{ perm.nombre|default:perm.codename }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% if permissions|length > 3 %}
+                <details class="role-permissions-details">
+                    <summary>Ver los {{ permissions|length|add:"-3" }} permisos restantes</summary>
+                    <div class="role-permission-list">
+                        {% for perm in permissions|slice:"3:" %}
+                        <span
+                            class="role-permission-chip"
+                            data-permission-chip
+                            data-permission-name="{{ perm.nombre }}"
+                            data-permission-code="{{ perm.codename }}"
+                            title="{{ perm.tipo }}.{{ perm.codename }}"
+                        >
+                            {{ perm.nombre|default:perm.codename }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
+                {% else %}
+                <p class="role-no-permissions">Este rol aún no tiene permisos asignados.</p>
+                {% endif %}
+
+                <footer class="role-card-footer">
+                    <span>Acciones del perfil</span>
+                    <div class="role-card-actions">
+                        {% if user.is_superuser or perms.usuario.change_perfil %}
+                        <a href="{% url 'usuarios:perfil_update' perfil.pk %}" class="role-action role-action-edit">
+                            <i class="fa-solid fa-pen" aria-hidden="true"></i> Editar
+                        </a>
+                        {% endif %}
+                        {% if user.is_superuser or perms.usuario.delete_perfil %}
+                        <a href="{% url 'usuarios:perfil_delete' perfil.pk %}" class="role-action role-action-delete">
+                            <i class="fa-solid fa-trash" aria-hidden="true"></i> Eliminar
+                        </a>
+                        {% endif %}
+                    </div>
+                </footer>
+            </article>
+            {% endwith %}
+            {% empty %}
+            <div class="glass-card role-empty-state">
+                <span class="role-empty-icon" aria-hidden="true">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </span>
+                <h2>No se encontraron perfiles</h2>
+                <p>Prueba con otro nombre{% if query %} o limpia la búsqueda{% endif %}.</p>
+                {% if query %}<a href="{% url 'usuarios:perfil_list' %}" class="btn-cancel">Limpiar búsqueda</a>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if is_paginated %}
+        <nav class="pagination catalog-pagination" aria-label="Paginación de perfiles">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}" class="catalog-page-link catalog-page-previous" rel="prev" aria-label="Ir a la página {{ page_obj.previous_page_number }}">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Anterior
+            </a>
+            {% else %}
+            <span class="catalog-page-placeholder catalog-page-previous" aria-hidden="true"></span>
+            {% endif %}
+            <span class="pagination-info" role="status" aria-label="Página actual {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}">
+                <span>Página</span>
+                <strong>{{ page_obj.number }}</strong>
+                <span>de</span>
+                <strong>{{ page_obj.paginator.num_pages }}</strong>
+            </span>
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}" class="catalog-page-link catalog-page-next" rel="next" aria-label="Ir a la página {{ page_obj.next_page_number }}">
+                Siguiente <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </a>
+            {% else %}
+            <span class="catalog-page-placeholder catalog-page-next" aria-hidden="true"></span>
+            {% endif %}
+        </nav>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/perfil-permisos.js' %}?v=3" defer></script>
 {% endblock %}
